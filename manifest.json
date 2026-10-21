@@ -61,7 +61,8 @@
     "guest_email",
     "guest_phone",
     "guest_note",
-    "source"
+    "source",
+    "revision"
   ],
   "row_policies": {
     "forms": {
@@ -180,12 +181,33 @@
       "columns": [
         "file_id"
       ]
+    },
+    "submissions": {
+      "list_columns": [
+        "file_ids"
+      ]
     }
   },
   "file_acls": {
-    "write": {
-      "require_role": "adult",
-      "roster_steward_only": true
+    "read": "scoped",
+    "default_scope": "documents",
+    "scopes": {
+      "documents": {
+        "write": {
+          "require_role": "adult",
+          "roster_steward_only": true
+        },
+        "read": "members"
+      },
+      "answers": {
+        "read": {
+          "uploader": true,
+          "require_group_setting": {
+            "settings_table": "settings",
+            "settings_key": "reviewers_group_id"
+          }
+        }
+      }
     }
   },
   "admin_config": {

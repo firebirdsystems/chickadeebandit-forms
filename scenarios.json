@@ -546,13 +546,15 @@
         {
           "action": "db",
           "as": "kid",
-          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, signed_name = ?, signed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft'",
+          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, file_ids = ?, signed_name = ?, signed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft' AND revision = ?",
           "params": [
             "{\"q1\":true,\"q2\":\"yes\"}",
+            "[]",
             "Casey Kid",
             "I accept the rules.",
             "hash-1",
-            "s-kid"
+            "s-kid",
+            ""
           ],
           "expect": {
             "status": 200
@@ -775,14 +777,50 @@
         {
           "action": "db",
           "as": "member",
-          "sql": "UPDATE app_forms__submissions SET answers = ?, updated_at = ? WHERE id = ? AND status = 'draft'",
+          "sql": "UPDATE app_forms__submissions SET answers = ?, file_ids = ?, updated_at = ?, revision = ? WHERE id = ? AND status = 'draft' AND revision = ?",
           "params": [
             "{\"q\":\"draft text\"}",
+            "[]",
             "2026-01-03T01:00:00Z",
-            "s-m"
+            "rev-1",
+            "s-m",
+            ""
           ],
           "expect": {
             "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "UPDATE app_forms__submissions SET answers = ?, file_ids = ?, updated_at = ?, revision = ? WHERE id = ? AND status = 'draft' AND revision = ?",
+          "params": [
+            "{\"q\":\"from an older tab\"}",
+            "[]",
+            "2026-01-03T02:00:00Z",
+            "rev-stale",
+            "s-m",
+            ""
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "SELECT answers FROM app_forms__submissions WHERE id = ? AND updated_at = ?",
+          "params": [
+            "s-m",
+            "2026-01-03T01:00:00Z"
+          ],
+          "expect": {
+            "status": 200,
+            "rowsContain": [
+              {
+                "answers": "{\"q\":\"draft text\"}"
+              }
+            ]
           }
         },
         {
@@ -799,13 +837,15 @@
         {
           "action": "db",
           "as": "member",
-          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, signed_name = ?, signed_at = NULL, signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft'",
+          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, file_ids = ?, signed_name = ?, signed_at = NULL, signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft' AND revision = ?",
           "params": [
             "{\"q\":\"final\"}",
+            "[]",
             "",
             "",
             "h",
-            "s-m"
+            "s-m",
+            "rev-1"
           ],
           "expect": {
             "status": 200

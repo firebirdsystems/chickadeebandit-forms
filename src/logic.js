@@ -28,7 +28,13 @@ export const QUESTION_TYPES = Object.freeze({
   number: "Number",
   date: "Date",
   read: "Read and acknowledge",
+  file: "Attach a file",
 });
+
+/** The file scope a member's attachment is uploaded into (manifest
+ *  file_acls.scopes): opened by that member and the reviewers group only. A
+ *  builder's document goes into the default scope, which every member opens. */
+export const ANSWER_FILE_SCOPE = "answers";
 
 export const AUDIENCE_KINDS = ["everyone", "group", "members"];
 
@@ -85,8 +91,19 @@ export const ARCHIVE_FORM_SQL =
   `UPDATE app_forms__forms SET status = 'archived', closes_at = MIN(COALESCE(closes_at, ${SERVER_NOW}), ${SERVER_NOW}), `
   + `closed_at = COALESCE(closed_at, ${SERVER_NOW}), updated_at = ? WHERE id = ? AND status IN ('open', 'closed')`;
 
+/** Saving a draft: the answers, and the files they name, in one statement, so
+ *  the row never names a file its answers do not or the reverse. Each save
+ *  writes a new random `revision` and is guarded on the one the page's answers
+ *  rest on, so a tab holding an older draft cannot write over answers or
+ *  files saved since in another tab or on another device. Not `updated_at`:
+ *  two tabs can save in the same millisecond. */
+export const SAVE_DRAFT_SQL =
+  "UPDATE app_forms__submissions SET answers = ?, file_ids = ?, updated_at = ?, revision = ? WHERE id = ? AND status = 'draft' AND revision = ?";
+
 /** Submitting: a draft row becomes final. Guarded on `status = 'draft'` so a
- *  second press, or a stale tab, cannot re-sign what is already signed.
+ *  second press, or a stale tab, cannot re-sign what is already signed, and
+ *  on the `revision` the page's answers rest on (SAVE_DRAFT_SQL), so a tab
+ *  holding an older draft cannot submit over files attached since elsewhere.
  *
  *  The times come from the hub's clock, like a close's: a device clock that
  *  runs fast or slow cannot mark a copy "After close" wrongly or backdate a
@@ -95,8 +112,8 @@ export const ARCHIVE_FORM_SQL =
  *  land between the two; a copy that does is stamped after `closed_at` by the
  *  same clock, and the review list marks it "After close". */
 export const SUBMIT_SQL =
-  "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, signed_name = ?, signed_at = NULL, signed_text = ?, "
-  + `terms_hash = ?, submitted_at = ${SERVER_NOW}, updated_at = ${SERVER_NOW} WHERE id = ? AND status = 'draft'`;
+  "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, file_ids = ?, signed_name = ?, signed_at = NULL, signed_text = ?, "
+  + `terms_hash = ?, submitted_at = ${SERVER_NOW}, updated_at = ${SERVER_NOW} WHERE id = ? AND status = 'draft' AND revision = ?`;
 
 /** The same, for a form that asks for a signature: `signed_at` is the hub's
  *  moment of submitting. */
@@ -118,6 +135,25 @@ export function parseObject(raw) {
     const parsed = typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch { return {}; }
+}
+
+/** An attached file as an answer holds it: the hub id and the name it was
+ *  stored under. Anything else is no attachment. */
+export function attachedFile(value) {
+  if (!value || typeof value !== "object" || !isFileId(value.file_id)) return null;
+  return { file_id: value.file_id, name: String(value.name ?? "").trim().slice(0, MAX_LABEL) };
+}
+
+/** The file ids the answers name, for the row's `file_ids` column: one per
+ *  answered "Attach a file" question, in question order. */
+export function answerFileIds(questions, answers) {
+  const ids = [];
+  for (const q of [...(questions ?? [])].sort((a, b) => a.position - b.position)) {
+    if (q.type !== "file") continue;
+    const file = attachedFile(answers?.[q.id]);
+    if (file && !ids.includes(file.file_id)) ids.push(file.file_id);
+  }
+  return ids;
 }
 
 /** A JSON array of strings (options, member ids), read defensively. */
@@ -448,6 +484,11 @@ export function cleanAnswer(question, raw) {
       if (raw === true || raw === "yes" || raw === 1) return { value: true };
       return required ? { error: `Confirm you have read "${question.label}".` } : { value: raw ? true : null };
     }
+    case "file": {
+      const file = attachedFile(raw);
+      if (file) return { value: file };
+      return required ? { error: `Attach a file for "${question.label}".` } : { value: null };
+    }
     default:
       return { error: "Unknown question type." };
   }
@@ -528,6 +569,7 @@ export function answerText(question, value) {
     case "multi": return (Array.isArray(value) ? value : []).join(", ");
     case "yesno": return value === "yes" ? "Yes" : value === "no" ? "No" : "";
     case "read": return value ? "Read and acknowledged" : "";
+    case "file": return attachedFile(value)?.name || (attachedFile(value) ? "Attached file" : "");
     case "number": return String(value);
     default: return String(value);
   }
@@ -592,11 +634,11 @@ export function outcomeUnknown(e) {
   return status === 0 || status === 400 || (status >= 500 && status !== 507);
 }
 
-/** The line a failed document upload shows: the upload's own refusals first. */
-export function uploadFailureLine(e) {
+/** The line a failed upload shows: the upload's own refusals first. */
+export function uploadFailureLine(e, { action = "attach that document", thing = "document" } = {}) {
   if (e?.status === 413) return "That file is too large.";
   if (e?.status === 415) return "That kind of file can’t be uploaded.";
-  return failureLine(e, { action: "attach that document", thing: "document" });
+  return failureLine(e, { action, thing });
 }
 
 /** The line a failed write shows, from the error's status / code, never the

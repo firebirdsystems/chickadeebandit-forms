@@ -181,6 +181,7 @@ import { createShareUi, createOverlayView } from "/hub-share-ui.js";
 import {
   QUESTION_TYPES, MAX_QUESTIONS, MAX_INTAKE_PER_LINK,
   OPEN_FORM_SQL, CLOSE_FORM_SQL, REOPEN_FORM_SQL, ARCHIVE_FORM_SQL, SUBMIT_SQL, SUBMIT_SIGNED_SQL, FORM_STATE_SQL,
+  SAVE_DRAFT_SQL, ANSWER_FILE_SCOPE, attachedFile, answerFileIds,
   parseObject, parseStrings, isFileId,
   canManage as _canManage, canReview as _canReview, reviewersProblem, resolveCurrentMember,
   audienceIds, inAudience, audienceLabel, completion, termsHash, submissionIntact, notifyAudience, safeLink,
@@ -215,7 +216,9 @@ let searchQ = "";
 let view = { kind: "list" };   // or { kind: "form", id }
 let modalEl = null;
 let loadFailed = false;
-const fillState = { formId: null, answers: {}, signature: { name: null, agreed: false }, error: "" };
+// `uploading`: the questions whose file is on its way up. Nothing is saved or
+// submitted until each has landed in the draft.
+const fillState = { formId: null, answers: {}, signature: { name: null, agreed: false }, error: "", uploading: new Set() };
 // Forms whose questions could not be read on the last try. Until a read
 // succeeds the page offers no way to answer, sign or submit: an unread form
 // is not a form with no questions.
@@ -232,7 +235,7 @@ function memberName(id) { return members.find(m => m.id === id)?.name ?? "Someon
 // A read step's document: uploaded by the builder, opened by every member who
 // can read the question (the hub's default file rule).
 const files = createFilesHelper(FILES_URL);
-const DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain",
+const DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "text/plain",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 const docLink = (q) => isFileId(q.file_id)
   ? `<p><a class="link-chip" data-testid="read-document" href="${esc(files.url(q.file_id))}" target="_blank" rel="noopener">${glyph("document")} ${esc(q.file_name || "Open the document")}</a></p>`
@@ -475,6 +478,11 @@ async function loadIntake(formId, { more = false } = {}) {
 
 // ── Render: shell ────────────────────────────────────────────────────────────
 
+document.addEventListener("change", (e) => {
+  const questionId = e.target?.dataset?.fileQ;
+  if (questionId && view.kind === "form") attachAnswerFile(view.id, questionId, e.target);
+});
+
 document.addEventListener("input", (e) => {
   if (e.target.id !== "search") return;
   searchQ = e.target.value;
@@ -624,9 +632,22 @@ async function openForm(id) {
   if (!form) return;
   view = { kind: "form", id };
   if (fillState.formId !== id) {
-    Object.assign(fillState, { formId: id, answers: {}, signature: { name: null, agreed: false }, error: "" });
-    const sub = mySubmission(mine, id, ME?.id);
-    if (sub && sub.status === "draft") fillState.answers = parseObject(sub.answers);
+    // A save still on its way (a file attached just before leaving a form)
+    // is what that draft holds: wait for it before switching, so this form
+    // is never shown, or saved, with answers from before it. Until then the
+    // fill state is still the last form's, which every action checks.
+    await draftWrites;
+    if (view.kind !== "form" || view.id !== id) return;
+    if (fillState.formId !== id) {
+      Object.assign(fillState, { formId: id, answers: {}, signature: { name: null, agreed: false }, error: "", uploading: new Set() });
+      const sub = mySubmission(mine, id, ME?.id);
+      if (sub && sub.status === "draft") {
+        fillState.answers = parseObject(sub.answers);
+        draftBases.set(id, revisionOf(sub));
+      } else {
+        draftBases.delete(id);
+      }
+    }
   }
   render();
   // Each read redraws the page when it lands, whatever the others do: one
@@ -669,7 +690,10 @@ function renderFormPage(main) {
     fill = `<div class="notice ok" data-testid="submitted-notice"><span>${glyph("tick")} You submitted this ${formatRelativeDate(sub.submitted_at)}.</span><button class="btn btn-ghost btn-sm" data-testid="view-mine" data-action="view-mine" data-id="${esc(form.id)}">View your copy</button></div>`;
   } else if (form.status === "open" && forMe && questionsFailed.has(form.id)) {
     fill = `<div class="load-error" data-testid="questions-error" role="alert"><span>Couldn’t load this form’s questions.</span> <button type="button" class="load-error-retry" data-action="retry-questions" data-id="${esc(form.id)}">Try again</button></div>`;
-  } else if (form.status === "open" && forMe && !questionsReady) {
+  } else if (form.status === "open" && forMe && (!questionsReady || fillState.formId !== form.id)) {
+    // Also while the fill state is still the last form's (openForm waits for
+    // that form's saves first): drawn now, these inputs would hold the wrong
+    // answers, and the next redraw would read them in as this form's.
     fill = `<div class="notice info" data-testid="questions-loading"><span>Loading the questions…</span></div>`;
   } else if (form.status === "open" && forMe && questions.length === 0) {
     fill = `<div class="notice info" data-testid="no-questions"><span>This form has no questions, so there is nothing to fill in. Ask whoever made it.</span></div>`;
@@ -719,6 +743,20 @@ function renderQuestionInput(q, value) {
     case "read": {
       const link = safeLink(q.link_url) ? `<p><a class="link-chip" href="${esc(safeLink(q.link_url))}" target="_blank" rel="noopener">${glyph("link")} ${esc(q.link_url)}</a></p>` : "";
       return `${docLink(q)}${q.body ? `<div class="q-body">${esc(q.body)}</div>` : ""}${link}<label class="check-row"><input type="checkbox" ${name} data-read="1" ${value ? "checked" : ""} /> <span>I have read this</span></label>`;
+    }
+    case "file": {
+      // Held in fillState, never read back from an input: the answer is the
+      // file the hub stored, which the draft row already names.
+      const file = attachedFile(value);
+      const chip = file
+        ? `<p><span class="link-chip" data-testid="answer-file">${glyph("document")} <a href="${esc(files.url(file.file_id))}" target="_blank" rel="noopener">${esc(file.name || "Attached file")}</a> <button type="button" class="btn btn-xs btn-ghost" data-action="remove-answer-file" data-question="${esc(q.id)}" aria-label="Remove the file">×</button></span></p>`
+        : "";
+      const picker = fillState.uploading.has(q.id)
+        ? `<p class="form-hint">Uploading…</p>`
+        : file ? "" : FILES_URL
+          ? `<input type="file" id="${id}" data-testid="answer-file-input" data-file-q="${esc(q.id)}" accept="${DOC_TYPES.join(",")}" />`
+          : `<p class="form-hint">Attaching files works inside the hub.</p>`;
+      return `${chip}${picker}<p class="form-hint">Only you and this form’s reviewers can open the file, from the moment you attach it.</p>`;
     }
     default: return "";
   }
@@ -1017,6 +1055,7 @@ function openQuestionModal(formId, existing) {
       <div class="form-group"><label for="q-label">Question or heading</label><input id="q-label" data-testid="field-qlabel" type="text" maxlength="200" value="${esc(q.label)}" data-autofocus /></div>
       <div class="form-group"><label for="q-help">Help text (optional)</label><input id="q-help" type="text" maxlength="500" value="${esc(q.help)}" /></div>
       <div class="form-group" id="q-options-row"><label for="q-options">Options, one per line</label><textarea id="q-options" data-testid="field-qoptions" rows="4">${esc(parseStrings(q.options).join("\n"))}</textarea></div>
+      <p class="form-hint" id="q-file-hint">Each member attaches a file of their own. Only they and the reviewers can open it.</p>
       <div id="q-read-rows">
         <div class="form-group"><label for="q-file">Document (PDF, Word, image or text)</label>
           <div id="q-doc">${docChip(q.file_id, q.file_name)}</div>
@@ -1036,6 +1075,7 @@ function openQuestionModal(formId, existing) {
     const t = modalEl.querySelector("#q-type").value;
     modalEl.querySelector("#q-options-row").style.display = t === "choice" || t === "multi" ? "" : "none";
     modalEl.querySelector("#q-read-rows").style.display = t === "read" ? "" : "none";
+    modalEl.querySelector("#q-file-hint").style.display = t === "file" ? "" : "none";
   };
   modalEl.querySelector("#q-type").addEventListener("change", sync);
   sync();
@@ -1438,6 +1478,7 @@ function collectAnswers(formId) {
     if (q.type === "multi") raw[q.id] = els.filter(el => el.checked).map(el => el.value);
     else if (q.type === "choice" || q.type === "yesno") raw[q.id] = els.find(el => el.checked)?.value ?? "";
     else if (q.type === "read") raw[q.id] = !!els[0]?.checked;
+    else if (q.type === "file") raw[q.id] = fillState.answers[q.id] ?? null;
     else raw[q.id] = els[0]?.value ?? "";
   }
   fillState.answers = raw;
@@ -1453,51 +1494,314 @@ async function ensureDraftRow(form) {
   if (sub) return sub;
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+  const revision = crypto.randomUUID();
+  sentRevisions.add(revision);
   try {
     await db(
-      `INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?)`,
-      [id, form.id, ME.id, now, now],
+      `INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at, revision) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?, ?)`,
+      [id, form.id, ME.id, now, now, revision],
     );
   } catch (e) {
     // A draft may already exist (another tab, a lost answer): read it back.
     if (!outcomeUnknown(e) && e?.status !== 403) throw e;
     sub = await loadMineFor(form.id);
     if (!sub) throw e;
+    // Our own insert, whose answer was lost: carry on with it. Anyone else's
+    // was saved by another tab or device, which this page has never seen.
+    // Writing over it would drop its answers and files: take it instead.
+    if (sub.id !== id) {
+      if (sub.status === "submitted") throw userError("This form was already submitted.");
+      adoptStoredDraft(form, sub);
+    }
+    // Ours, but the answers rest on the row as the insert wrote it, not as it
+    // reads now: another tab may have opened it and saved since. Any such
+    // save is taken rather than written over.
+    draftBases.set(form.id, revision);
+    if (reconcileStoredDraft(form, sub)) throw Object.assign(userError(STALE_DRAFT), { adopted: true });
     return sub;
   }
-  sub = { id, form_id: form.id, member_id: ME.id, status: "draft", answers: "{}", signed_name: "", signed_at: null, terms_hash: "", submitted_at: null, created_at: now, updated_at: now };
+  draftBases.set(form.id, revision);
+  sub = { id, form_id: form.id, member_id: ME.id, status: "draft", answers: "{}", signed_name: "", signed_at: null, terms_hash: "", submitted_at: null, created_at: now, updated_at: now, revision };
   mine = [sub, ...mine];
   return sub;
+}
+
+// Every draft write, one after another. Each is guarded on the revision the
+// one before it wrote, so two in flight at once would refuse each other.
+let draftWrites = Promise.resolve();
+// Bumped whenever the page takes the stored draft over its own. A write or a
+// submit queued before that holds answers from before it, and would write
+// them over the stored files with a revision that now matches.
+// Kept per form: taking one form's stored draft says nothing about another's.
+const draftEpochs = new Map();
+const draftEpoch = (formId) => draftEpochs.get(formId) ?? 0;
+// Every change to a form's stored draft this page knows of: each write that
+// landed, and each stored draft it took. A submit checks it has not moved
+// since the answers it is about to sign were read.
+const draftVersions = new Map();
+const draftVersion = (formId) => draftVersions.get(formId) ?? 0;
+const bumpDraftVersion = (formId) => draftVersions.set(formId, draftVersion(formId) + 1);
+
+/** Runs `work` after every draft write already queued, and holds the queue
+ *  until it settles. */
+function queueDraftWork(work) {
+  const run = draftWrites.then(work);
+  draftWrites = run.catch(() => {});
+  return run;
+}
+
+// The stored draft each form's held answers rest on, by its revision: set
+// when the page loads, saves or takes a draft, and by nothing else. Every
+// save and submit is guarded on it. The row in `mine` is not enough: any read
+// refreshes it, and a guard on a refreshed row would let answers from before
+// another tab's save write over that save, and drop its answers and files.
+const draftBases = new Map();
+// The revisions this page has written: a read that finds one stored knows
+// the write was its own, whose answer was lost. Random, so never another's.
+const sentRevisions = new Set();
+const revisionOf = (row) => row?.revision ?? "";
+
+/** Makes the stored draft the one the page's answers rest on: its answers
+ *  replace the held ones, and writes and submits queued before this stop. */
+function takeStoredDraft(form, stored) {
+  draftEpochs.set(form.id, draftEpoch(form.id) + 1);
+  bumpDraftVersion(form.id);
+  draftBases.set(form.id, revisionOf(stored));
+  if (fillState.formId === form.id) {
+    // A file held here that the stored draft does not name is let go: nothing
+    // else would ever delete it. The hub refuses (403) while any row names it.
+    const kept = new Set(parseStrings(stored.file_ids));
+    for (const answer of Object.values(fillState.answers)) {
+      const id = attachedFile(answer)?.file_id;
+      if (id && !kept.has(id)) files.delete(id).catch(() => {});
+    }
+    fillState.answers = parseObject(stored.answers);
+  }
+}
+
+/** takeStoredDraft, then the line to show, thrown. */
+function adoptStoredDraft(form, stored) {
+  takeStoredDraft(form, stored);
+  throw Object.assign(userError(STALE_DRAFT), { adopted: true });
+}
+
+/** After the stored draft is read outside a write (a failed save's
+ *  recovery): if it is not the draft the answers rest on, a write landed.
+ *  The page's own, whose answer was lost, now becomes the base. Anyone
+ *  else's is taken. True when another's was taken. */
+function reconcileStoredDraft(form, stored) {
+  if (!stored || stored.status !== "draft" || revisionOf(stored) === draftBases.get(form.id)) return false;
+  if (sentRevisions.has(revisionOf(stored))) {
+    draftBases.set(form.id, revisionOf(stored));
+    bumpDraftVersion(form.id);
+    return false;
+  }
+  takeStoredDraft(form, stored);
+  return true;
+}
+
+/** Writes the held answers to the draft, with the files they name, after any
+ *  write already queued. The answers are taken now, so the last write queued
+ *  holds everything attached before it. This never runs without the form's
+ *  questions: without them no file would be named, and every attached file
+ *  would go. */
+function writeDraft(form) {
+  const questions = questionsFailed.has(form.id) ? null : questionsByForm.get(form.id);
+  if (!questions) return Promise.reject(userError("Couldn’t load this form’s questions. Try again."));
+  const held = { ...fillState.answers };
+  const epoch = draftEpoch(form.id);
+  return queueDraftWork(async () => {
+    if (epoch !== draftEpoch(form.id)) throw Object.assign(userError(STALE_DRAFT), { adopted: true });
+    const sub = await ensureDraftRow(form);
+    const expected = draftBases.get(form.id);
+    // A stored draft the held answers were never based on (it arrived after
+    // the form was opened): take it rather than write over it.
+    if (expected === undefined) adoptStoredDraft(form, sub);
+    const now = new Date().toISOString();
+    const revision = crypto.randomUUID();
+    sentRevisions.add(revision);
+    const answers = JSON.stringify(held);
+    const fileIds = JSON.stringify(answerFileIds(questions, held));
+    let changed;
+    try {
+      ({ changed } = await db(SAVE_DRAFT_SQL, [answers, fileIds, now, revision, sub.id, expected]));
+    } catch (e) {
+      // Only the answer may have been lost: if the stored draft carries this
+      // write's revision, it landed.
+      if (!outcomeUnknown(e)) throw e;
+      const stored = await loadMineFor(form.id).catch(() => null);
+      if (revisionOf(stored) !== revision) throw e;
+      changed = 1;
+    }
+    if (DB && Number(changed ?? 0) === 0) await refusedDraftWrite(form);
+    const saved = { answers, file_ids: fileIds, updated_at: now, revision };
+    Object.assign(sub, saved);
+    // A read that landed meanwhile may have put a fresh copy of the row in
+    // `mine`, still holding the old revision: the next write must see this one.
+    const current = mySubmission(mine, form.id, ME.id);
+    if (current && current !== sub && current.id === sub.id) Object.assign(current, saved);
+    draftBases.set(form.id, revision);
+    bumpDraftVersion(form.id);
+  });
+}
+
+// What a member is told when their draft was saved elsewhere since this page read it.
+const STALE_DRAFT = "This draft was saved in another tab or on another device. Its attached files are shown here now: check your answers, then save or submit again.";
+
+/** A draft write or submit that changed nothing: the copy was submitted, or
+ *  another tab or device saved the draft since this page read it. The page
+ *  then takes the stored draft's answers. The next redraw puts back what is
+ *  typed on screen, but the files are the stored ones, so it never writes
+ *  over a file attached there. Always throws, with the line to show. */
+async function refusedDraftWrite(form) {
+  let stored;
+  try { stored = await loadMineFor(form.id); }
+  catch (err) { console.error(err); throw userError("Couldn’t check this draft. Reload the page to see it."); }
+  if (stored?.status === "submitted") throw userError("This form was already submitted.");
+  if (!stored) throw userError("This draft has been removed.");
+  if (reconcileStoredDraft(form, stored)) throw Object.assign(userError(STALE_DRAFT), { adopted: true });
+  // The page's own earlier write, whose answer was lost: the base is now
+  // that, and the same save will go through.
+  throw userError("Couldn’t save the draft — try again.");
 }
 
 async function saveDraft(formId) {
   const form = formById(forms, formId);
   if (!form || !ME?.id || fillState.formId !== formId) return;
-  const raw = collectAnswers(formId);
+  collectAnswers(formId);
+  if (fillState.uploading.size) { fillState.error = "Wait for the file to finish uploading."; render(); return; }
   const btn = document.querySelector('[data-testid="save-draft"]');
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
   fillState.error = "";
   try {
-    const sub = await ensureDraftRow(form);
-    const now = new Date().toISOString();
-    const { changed } = await db(`UPDATE app_forms__submissions SET answers = ?, updated_at = ? WHERE id = ? AND status = 'draft'`, [JSON.stringify(raw), now, sub.id]);
-    if (DB && Number(changed ?? 0) === 0) throw userError("This form was already submitted.");
-    Object.assign(sub, { answers: JSON.stringify(raw), updated_at: now });
+    await writeDraft(form);
     toast("Draft saved.");
   } catch (e) {
     console.error(e);
-    fillState.error = failureLine(e, { action: "save the draft", thing: "draft" });
+    if (fillState.formId === formId) fillState.error = failureLine(e, { action: "save the draft", thing: "draft" });
   }
   if (view.kind === "form" && view.id === formId) render();
 }
 
+// Each question's attach and remove, in the order the member made them. A
+// failed one puts back what it replaced only while it is still the latest
+// thing done to that question, and no stored draft has been taken since:
+// otherwise it would bring back a file the member has since moved past.
+const answerEdits = new Map();
+function editAnswer(formId, questionId) {
+  const key = `${formId}\u0000${questionId}`;
+  const version = (answerEdits.get(key) ?? 0) + 1;
+  answerEdits.set(key, version);
+  const epoch = draftEpoch(formId);
+  return () => answerEdits.get(key) === version && draftEpoch(formId) === epoch;
+}
+
+/** Uploads a member's file into the answers scope and saves the draft naming
+ *  it at once: the reviewers can open it from the moment it lands. The hub
+ *  never deletes an answers file because the draft stopped naming it, so the
+ *  page deletes the ones it lets go of, and the hub refuses (403) while any
+ *  row still names one. */
+async function attachAnswerFile(formId, questionId, input) {
+  const picked = input.files?.[0];
+  const form = formById(forms, formId);
+  if (!picked || !form || !ME?.id || fillState.formId !== formId || fillState.uploading.has(questionId)) return;
+  collectAnswers(formId);
+  // Held until the draft naming the file is saved, so Save draft and Submit
+  // wait for it too.
+  const uploading = fillState.uploading;
+  uploading.add(questionId);
+  fillState.error = "";
+  render();
+  const here = () => fillState.formId === formId && fillState.uploading === uploading;
+  let reply;
+  try {
+    reply = await files.upload(picked, { scope: ANSWER_FILE_SCOPE });
+  } catch (e) {
+    console.error(e);
+    uploading.delete(questionId);
+    if (here()) { fillState.error = uploadFailureLine(e, { action: "attach that file", thing: "file" }); render(); }
+    return;
+  }
+  // The member moved to another form while it uploaded: nothing will name it.
+  if (!here()) { uploading.delete(questionId); files.delete(reply.id).catch(() => {}); return; }
+  const previous = fillState.answers[questionId] ?? null;
+  const attached = { file_id: reply.id, name: reply.name ?? picked.name };
+  fillState.answers[questionId] = attached;
+  const latest = editAnswer(formId, questionId);
+  try {
+    await writeDraft(form);
+    // A file this one replaced is let go of now that the saved draft no
+    // longer names it.
+    const replaced = attachedFile(previous)?.file_id;
+    if (replaced && replaced !== reply.id) files.delete(replaced).catch(() => {});
+    toast("File attached.");
+  } catch (e) {
+    console.error(e);
+    // Only a save known not to have landed lets the file go: one the page
+    // refused itself, or a definite error. Unknown (the answer was lost), the
+    // file stays on the answer and the next save names it.
+    if (e?.forUser || !outcomeUnknown(e)) {
+      // Off the answer first, so no save queued from here on names it; then
+      // deleted once the saves already queued have settled. It goes back
+      // only when the hub refused: 403 (one of them named it after all) or
+      // 409 (busy). A delete whose answer was lost may have gone through,
+      // and putting a deleted file back would have the next save name it.
+      if (here() && latest()) fillState.answers[questionId] = previous;
+      await draftWrites;
+      const refused = await files.delete(reply.id).then(() => false, (err) => err?.status === 403 || err?.status === 409);
+      if (refused && here() && !e?.adopted && latest()) {
+        fillState.answers[questionId] = attached;
+      }
+    }
+    if (here()) fillState.error = e?.forUser ? e.message : failureLine(e, { action: "attach that file", thing: "draft" });
+  } finally {
+    uploading.delete(questionId);
+  }
+  if (here()) render();
+}
+
+/** Takes a file off the answer and out of the draft, then deletes it. */
+async function removeAnswerFile(formId, questionId) {
+  const form = formById(forms, formId);
+  if (!form || fillState.formId !== formId) return;
+  collectAnswers(formId);
+  const previous = fillState.answers[questionId];
+  if (!attachedFile(previous)) return;
+  fillState.answers[questionId] = null;
+  const latest = editAnswer(formId, questionId);
+  fillState.error = "";
+  try {
+    await writeDraft(form);
+    // Only once the saved draft no longer names it; the hub refuses while any
+    // row does.
+    files.delete(previous.file_id).catch(() => {});
+    toast("File removed.");
+  } catch (e) {
+    console.error(e);
+    // The file is still there (nothing deletes it but the page), so putting
+    // it back is safe: if the removal landed after all, the next save names
+    // it again. Only while this removal is still the latest thing done to
+    // the question (editAnswer): an attach or remove since is newer.
+    if (fillState.formId === formId) {
+      if (!e?.adopted && latest()) fillState.answers[questionId] = previous;
+      fillState.error = e?.forUser ? e.message : failureLine(e, { action: "remove the file", thing: "draft" });
+    }
+  }
+  if (fillState.formId === formId) render();
+}
+
 async function submitForm(formId) {
   const form = formById(forms, formId);
-  if (!form || !ME?.id) return;
+  if (!form || !ME?.id || fillState.formId !== formId) return;
   if (!questionsByForm.has(formId) || questionsFailed.has(formId)) { fillState.error = "Couldn’t load this form’s questions. Try again."; render(); return; }
   const questions = questionsByForm.get(formId);
   if (questions.length === 0) { fillState.error = "This form has no questions to answer."; render(); return; }
+  // Taken before the answers are: if a draft write finds the draft saved
+  // elsewhere while this submit is under way, these answers predate it.
+  const epoch = draftEpoch(formId);
+  const version = draftVersion(formId);
   const raw = collectAnswers(formId);
+  if (fillState.uploading.size) { fillState.error = "Wait for the file to finish uploading, then submit."; render(); return; }
   const checked = cleanAnswers(questions, raw);
   if (checked.error) { fillState.error = checked.error; render(); return; }
   const sig = cleanSignature(form, fillState.signature);
@@ -1532,11 +1836,28 @@ async function submitForm(formId) {
       }
       form.signature_text = state.signature_text;
     }
-    const sub = await ensureDraftRow(form);
-    const signedText = signs ? form.signature_text : "";
-    const hash = termsHash(questions, signedText);
-    const params = [JSON.stringify(checked.value.answers), sig.value.signed_name, signedText, hash, sub.id];
-    const { changed } = await db(signs ? SUBMIT_SIGNED_SQL : SUBMIT_SQL, params);
+    // In the draft-write queue, so no save runs while this one does. The
+    // answers were checked before the confirm: if the draft has changed since
+    // (a file finished attaching, a stored draft was taken), they are not
+    // what is now saved, and signing them would drop what changed.
+    const { sub, signedText, hash, fileIds, params, changed } = await queueDraftWork(async () => {
+      if (epoch !== draftEpoch(form.id)) throw userError(STALE_DRAFT);
+      if (version !== draftVersion(form.id)) {
+        throw userError("Your draft changed while you were submitting. Check your answers, then submit again.");
+      }
+      if (fillState.formId === form.id && fillState.uploading.size) {
+        throw userError("Wait for the file to finish uploading, then submit.");
+      }
+      const sub = await ensureDraftRow(form);
+      const expected = draftBases.get(form.id);
+      if (expected === undefined) adoptStoredDraft(form, sub);
+      const signedText = signs ? form.signature_text : "";
+      const hash = termsHash(questions, signedText);
+      const fileIds = JSON.stringify(answerFileIds(questions, checked.value.answers));
+      const params = [JSON.stringify(checked.value.answers), fileIds, sig.value.signed_name, signedText, hash, sub.id, expected];
+      const { changed } = await db(signs ? SUBMIT_SIGNED_SQL : SUBMIT_SQL, params);
+      return { sub, signedText, hash, fileIds, params, changed };
+    });
     let notice = "";
     // The submitted row as stored, with the hub's times, once known.
     let stored = null;
@@ -1547,6 +1868,9 @@ async function submitForm(formId) {
       let again;
       try { again = await loadMineFor(form.id); }
       catch (err) { console.error(err); throw userError("Couldn’t check whether this form was submitted. Reload the page to see."); }
+      if (again?.status === "draft") {
+        if (reconcileStoredDraft(form, again)) throw Object.assign(userError(STALE_DRAFT), { adopted: true });
+      }
       if (again?.status !== "submitted") throw userError(failureLine(null, { action: "submit the form", thing: "submission", found: !!again, guarded: true }));
       // Submitted already, from another tab or device: that copy is the one
       // kept, and these answers were not saved.
@@ -1557,7 +1881,7 @@ async function submitForm(formId) {
       // read fails the copy is still final, and this tab shows its own clock
       // until the next load.
       const now = new Date().toISOString();
-      Object.assign(sub, { status: "submitted", answers: params[0], signed_name: params[1], signed_at: signs ? now : null, signed_text: signedText, terms_hash: hash, submitted_at: now, updated_at: now });
+      Object.assign(sub, { status: "submitted", answers: params[0], file_ids: fileIds, signed_name: sig.value.signed_name, signed_at: signs ? now : null, signed_text: signedText, terms_hash: hash, submitted_at: now, updated_at: now });
       // Without a database (the demo) the local row is the stored one.
       stored = DB ? await loadMineFor(form.id).catch(err => { console.error(err); return null; }) : sub;
     }
@@ -1571,13 +1895,18 @@ async function submitForm(formId) {
     render();
     // Cleared after the redraw: renderFormPage reads the inputs still on
     // screen into fillState first, which would put these answers back.
-    fillState.answers = {};
-    fillState.signature = { name: null, agreed: false };
+    // Only if they are still this form's: the member may have opened another
+    // form while this one was submitting, and its answers are now held here.
+    if (fillState.formId === form.id) {
+      fillState.answers = {};
+      fillState.signature = { name: null, agreed: false };
+    }
     if (notice) { hubAlert(notice); return; }
     logHubActivity(`${ME.name} submitted "${form.title}"`, { url: hubAppUrl(APP_ID, { formId }) }).catch(() => {});
   } catch (e) {
     console.error(e);
-    fillState.error = failureLine(e, { action: "submit the form", thing: "submission" });
+    // Shown only on this form: the member may have opened another meanwhile.
+    if (fillState.formId === form.id) fillState.error = failureLine(e, { action: "submit the form", thing: "submission" });
     render();
   }
 }
@@ -1601,8 +1930,11 @@ function openSubmissionModal(form, sub, questions) {
   const rows = [...questions].sort((a, b) => a.position - b.position).map(q => {
     const value = answers[q.id];
     const text = answerText(q, value);
-    const shown = (text ? `<div class="answer">${esc(text)}</div>` : `<span class="answer none">No answer</span>`)
-      + (q.type === "read" ? docLink(q) : "");
+    const file = q.type === "file" ? attachedFile(value) : null;
+    const shown = file
+      ? `<p><a class="link-chip" data-testid="answer-file" href="${esc(files.url(file.file_id))}" target="_blank" rel="noopener">${glyph("document")} ${esc(text)}</a></p>`
+      : (text ? `<div class="answer">${esc(text)}</div>` : `<span class="answer none">No answer</span>`)
+        + (q.type === "read" ? docLink(q) : "");
     return `<div class="question"><div class="q-label">${esc(q.label)}</div>${shown}</div>`;
   }).join("");
   const intact = submissionIntact(questions, sub);
@@ -1734,6 +2066,7 @@ document.addEventListener("click", (e) => {
     case "add-q": openQuestionModal(id, null); break;
     case "edit-q": openQuestionModal(form.id, (questionsByForm.get(form.id) ?? []).find(q => q.id === id)); break;
     case "save-q": saveQuestion(id || null, el.dataset.form); break;
+    case "remove-answer-file": if (view.kind === "form") removeAnswerFile(view.id, el.dataset.question); break;
     case "q-remove-doc": if (modalEl) { dropDialogUpload(modalEl); Object.assign(modalEl.dataset, { fileId: "", fileName: "" }); modalEl.querySelector("#q-doc").innerHTML = ""; } break;
     case "delete-q": deleteQuestion(id); break;
     case "move-q": moveQuestion(id, Number(el.dataset.dir)); break;

@@ -54,11 +54,12 @@ CREATE TABLE IF NOT EXISTS app_forms__questions (
   form_id   TEXT NOT NULL,
   position  INTEGER NOT NULL DEFAULT 0,
 
-  -- text, multiline, choice, multi, yesno, number, date, read.
+  -- text, multiline, choice, multi, yesno, number, date, read, file.
   -- `read` is a document step: the member reads the attached document, the
-  -- text in `body` or the linked page, and ticks that they have.
+  -- text in `body` or the linked page, and ticks that they have. `file` asks
+  -- the member to attach a file of their own (an ID, a certificate).
   type      TEXT NOT NULL
-              CHECK (type IN ('text', 'multiline', 'choice', 'multi', 'yesno', 'number', 'date', 'read')),
+              CHECK (type IN ('text', 'multiline', 'choice', 'multi', 'yesno', 'number', 'date', 'read', 'file')),
   label     TEXT NOT NULL,
   help      TEXT NOT NULL DEFAULT '',
   required  INTEGER NOT NULL DEFAULT 0
@@ -90,6 +91,20 @@ CREATE TABLE IF NOT EXISTS app_forms__submissions (
                  CHECK (status IN ('draft', 'submitted')),
 
   answers      TEXT NOT NULL DEFAULT '{}',   -- JSON object: question id -> answer
+
+  -- The hub file ids the answers to "Attach a file" questions name, as a JSON
+  -- array (file_columns.list_columns). Each was uploaded into the "answers"
+  -- scope (file_acls). The hub never deletes one because this list let go of
+  -- it: the page deletes it, and the hub refuses while any row names it. The
+  -- scope decides who opens it, the member and the reviewers group, whatever
+  -- row names it.
+  file_ids     TEXT NOT NULL DEFAULT '[]',
+
+  -- A random id, new with every draft save. Saves and the submit are guarded
+  -- on the one the page's answers rest on, so a tab holding an older draft
+  -- cannot drop a file saved since. Plaintext (db_plaintext_columns): the
+  -- guard compares it.
+  revision     TEXT NOT NULL DEFAULT '',
 
   -- The typed signature, the moment it was given, the statement as it read
   -- on screen, and a hash over that statement and the questions as rendered

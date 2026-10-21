@@ -10,8 +10,8 @@ import {
   formDraft, questionDraft, cleanAnswer, cleanAnswers, cleanSignature, answerText,
   todoForms, byDueThenNewest, mySubmission, isOverdue, searchableFields, formatDay,
   outcomeUnknown, failureLine, uploadFailureLine,
-  OPEN_FORM_SQL, CLOSE_FORM_SQL, REOPEN_FORM_SQL, ARCHIVE_FORM_SQL, SUBMIT_SQL, SUBMIT_SIGNED_SQL,
-  MAX_TITLE, MAX_OPTIONS, QUESTION_TYPES,
+  OPEN_FORM_SQL, CLOSE_FORM_SQL, REOPEN_FORM_SQL, ARCHIVE_FORM_SQL, SUBMIT_SQL, SUBMIT_SIGNED_SQL, SAVE_DRAFT_SQL,
+  MAX_TITLE, MAX_OPTIONS, QUESTION_TYPES, ANSWER_FILE_SCOPE, attachedFile, answerFileIds,
   submittedWhileClosed, endClosedSpell,
 } from "../src/logic.js";
 
@@ -225,7 +225,7 @@ describe("question drafts", () => {
     expect(doc).toMatchObject({ file_id: UUID, file_name: "handbook.pdf", body: "" });
     expect(questionDraft({ type: "read", label: "Handbook", file_id: "../x", file_name: "x" }).error).toMatch(/document step/);
     expect(questionDraft({ type: "text", label: "Name", file_id: UUID, file_name: "x" }).value).toMatchObject({ file_id: null, file_name: "" });
-    expect(Object.keys(QUESTION_TYPES)).toEqual(["text", "multiline", "choice", "multi", "yesno", "number", "date", "read"]);
+    expect(Object.keys(QUESTION_TYPES)).toEqual(["text", "multiline", "choice", "multi", "yesno", "number", "date", "read", "file"]);
   });
 });
 
@@ -242,7 +242,7 @@ describe("answers", () => {
     const multi = question({ type: "multi", options: '["a","b"]' });
     expect(cleanAnswer(multi, ["b", "zz"]).value).toEqual(["b"]);
     expect(cleanAnswer(multi, ["zz"]).error).toMatch(/needs an answer/);
-    expect(cleanAnswer(question({ type: "file" }), ["x"]).error).toMatch(/Unknown/);
+    expect(cleanAnswer(question({ type: "signature" }), ["x"]).error).toMatch(/Unknown/);
     expect(cleanAnswer(question({ type: "yesno" }), "maybe").error).toMatch(/needs an answer/);
     expect(cleanAnswer(question({ type: "number" }), "12x").error).toMatch(/number/);
     expect(cleanAnswer(question({ type: "number" }), "12").value).toBe(12);
@@ -364,8 +364,8 @@ describe("the statements the page sends", () => {
   it("open and submit are guarded on the state they leave", () => {
     expect(OPEN_FORM_SQL).toMatch(/WHERE id = \? AND status = 'draft'$/);
     expect(SUBMIT_SQL).toContain("signed_text = ?");
-    expect(SUBMIT_SQL).toMatch(/WHERE id = \? AND status = 'draft'$/);
-    expect(SUBMIT_SIGNED_SQL).toMatch(/WHERE id = \? AND status = 'draft'$/);
+    expect(SUBMIT_SQL).toMatch(/WHERE id = \? AND status = 'draft' AND revision = \?$/);
+    expect(SUBMIT_SIGNED_SQL).toMatch(/WHERE id = \? AND status = 'draft' AND revision = \?$/);
     expect(CLOSE_FORM_SQL).toMatch(/AND status = 'open'$/);
     expect(REOPEN_FORM_SQL).toMatch(/AND status = 'closed'$/);
     expect(ARCHIVE_FORM_SQL).toMatch(/status IN \('open', 'closed'\)$/);
@@ -389,8 +389,9 @@ describe("the statements the page sends", () => {
     for (const sql of [SUBMIT_SQL, SUBMIT_SIGNED_SQL]) {
       expect(sql).toContain(`submitted_at = ${hub}`);
       expect(sql).toContain(`updated_at = ${hub}`);
-      // Bound: answers, signed_name, signed_text, terms_hash, id. No time.
-      expect(sql.split("?").length - 1).toBe(5);
+      // Bound: answers, file_ids, signed_name, signed_text, terms_hash, id and
+      // the revision the answers rest on. No new time.
+      expect(sql.split("?").length - 1).toBe(7);
     }
     expect(SUBMIT_SIGNED_SQL).toContain(`signed_at = ${hub}`);
     expect(SUBMIT_SQL).toContain("signed_at = NULL");
@@ -404,7 +405,7 @@ describe("the statements the page sends", () => {
     expect(all).toContain(JSON.stringify(REOPEN_FORM_SQL).slice(1, -1));
   });
   it("the page uses the exported statements, not copies", () => {
-    for (const name of ["OPEN_FORM_SQL", "CLOSE_FORM_SQL", "REOPEN_FORM_SQL", "ARCHIVE_FORM_SQL", "SUBMIT_SQL", "SUBMIT_SIGNED_SQL"]) expect(html).toContain(name);
+    for (const name of ["OPEN_FORM_SQL", "CLOSE_FORM_SQL", "REOPEN_FORM_SQL", "ARCHIVE_FORM_SQL", "SUBMIT_SQL", "SUBMIT_SIGNED_SQL", "SAVE_DRAFT_SQL"]) expect(html).toContain(name);
   });
 });
 
@@ -431,12 +432,25 @@ describe("schema and manifest agree", () => {
     expect(manifest.row_policies.questions.steward_writes_only).toBe(true);
     expect(manifest.row_policies.forms.steward_writes_only).toBe(true);
   });
-  it("a read step's document is the one file column, uploaded by builders only", () => {
-    expect(manifest.file_columns).toEqual({ questions: { columns: ["file_id"] } });
+  it("a read step's document is uploaded by builders and opened by every member", () => {
+    expect(manifest.file_columns.questions).toEqual({ columns: ["file_id"] });
     expect(manifest.delete_cascades.forms.find(c => c.table === "questions").file_id_column).toBe("file_id");
-    // No read rule: the hub's default lets every member who can read the
-    // question open its document. Members never upload into an answer.
-    expect(manifest.file_acls).toEqual({ write: { require_role: "adult", roster_steward_only: true } });
+    // Builder uploads name no scope, so they land in the default one.
+    expect(manifest.file_acls.read).toBe("scoped");
+    expect(manifest.file_acls.default_scope).toBe("documents");
+    expect(manifest.file_acls.scopes.documents).toEqual({ write: { require_role: "adult", roster_steward_only: true }, read: "members" });
+  });
+  it("a member's attachment is opened by them and the same reviewers group that reads submitted copies", () => {
+    expect(ANSWER_FILE_SCOPE).toBe("answers");
+    const scope = manifest.file_acls.scopes[ANSWER_FILE_SCOPE];
+    // No write rule: any member answering may attach.
+    expect(scope).toEqual({ read: { uploader: true, require_group_setting: { settings_table: "settings", settings_key: "reviewers_group_id" } } });
+    const reviewers = manifest.row_policies.submissions.privileged_groups[0];
+    expect(scope.read.require_group_setting).toEqual({ settings_table: reviewers.settings_table, settings_key: reviewers.settings_key });
+    // Named by the row's file list, so the hub deletes a file the draft drops.
+    expect(manifest.file_columns.submissions).toEqual({ list_columns: ["file_ids"] });
+    expect(migration).toMatch(/file_ids\s+TEXT NOT NULL DEFAULT '\[\]'/);
+    expect(html).toContain("scope: ANSWER_FILE_SCOPE");
   });
   it("never takes signed copies with a deleted form", () => {
     // A cascade runs as trusted engine statements, past the submissions'
@@ -508,5 +522,57 @@ describe("schema and manifest agree", () => {
   it("reads the admitted member set for completeness", () => {
     expect(manifest.data_access.reads).toContain("family.app_members");
     expect(manifest.data_access.reads).toContain("family.groups");
+  });
+});
+
+describe("attached files", () => {
+  const fileQ = { id: "qf", type: "file", label: "Photo ID", required: 1, position: 2 };
+  const optionalQ = { ...fileQ, id: "qo", required: 0, position: 3 };
+  const textQ = { id: "qt", type: "text", label: "Name", required: 0, position: 1 };
+
+  it("an answer is a stored file: its id and name, nothing else", () => {
+    expect(attachedFile({ file_id: UUID, name: " id.pdf ", extra: 1 })).toEqual({ file_id: UUID, name: "id.pdf" });
+    expect(attachedFile({ file_id: "not-an-id", name: "x" })).toBeNull();
+    expect(attachedFile(UUID)).toBeNull();
+    expect(attachedFile(null)).toBeNull();
+  });
+
+  it("a required file question needs one, and an optional one may stay empty", () => {
+    expect(cleanAnswer(fileQ, null)).toEqual({ error: 'Attach a file for "Photo ID".' });
+    expect(cleanAnswer(fileQ, { file_id: "nope" })).toEqual({ error: 'Attach a file for "Photo ID".' });
+    expect(cleanAnswer(fileQ, { file_id: UUID, name: "id.pdf" })).toEqual({ value: { file_id: UUID, name: "id.pdf" } });
+    expect(cleanAnswer(optionalQ, null)).toEqual({ value: null });
+  });
+
+  it("the row's file list is the files the answers name, in question order, once each", () => {
+    const answers = { qo: { file_id: UUID_2, name: "b" }, qf: { file_id: UUID, name: "a" }, qt: UUID };
+    expect(answerFileIds([optionalQ, textQ, fileQ], answers)).toEqual([UUID, UUID_2]);
+    expect(answerFileIds([fileQ, optionalQ], { qf: { file_id: UUID }, qo: { file_id: UUID } })).toEqual([UUID]);
+    // A text answer that looks like an id is not a file.
+    expect(answerFileIds([textQ], { qt: UUID })).toEqual([]);
+    expect(answerFileIds(null, null)).toEqual([]);
+  });
+
+  it("reads back as the file's name", () => {
+    expect(answerText(fileQ, { file_id: UUID, name: "id.pdf" })).toBe("id.pdf");
+    expect(answerText(fileQ, { file_id: UUID, name: "" })).toBe("Attached file");
+    expect(answerText(fileQ, { file_id: "x" })).toBe("");
+  });
+
+  it("a draft save and a submit write the answers and the files they name together", () => {
+    expect(SAVE_DRAFT_SQL).toBe("UPDATE app_forms__submissions SET answers = ?, file_ids = ?, updated_at = ?, revision = ? WHERE id = ? AND status = 'draft' AND revision = ?");
+    // Both refuse a tab holding an older draft, which would drop files attached
+    // since. On a random revision: two tabs can save in the same millisecond.
+    for (const sql of [SAVE_DRAFT_SQL, SUBMIT_SQL, SUBMIT_SIGNED_SQL]) expect(sql).toMatch(/AND revision = \?$/);
+    expect(manifest.db_plaintext_columns).toContain("revision");
+    expect(migration).toMatch(/revision\s+TEXT NOT NULL DEFAULT ''/);
+    // The scenarios run the page's own statement against the hub.
+    expect(JSON.stringify(scenarios)).toContain(JSON.stringify(SAVE_DRAFT_SQL).slice(1, -1));
+    for (const sql of [SUBMIT_SQL, SUBMIT_SIGNED_SQL]) expect(sql).toContain("answers = ?, file_ids = ?, signed_name = ?");
+  });
+
+  it("an upload failure says what failed", () => {
+    expect(uploadFailureLine({ status: 413 }, { action: "attach that file", thing: "file" })).toBe("That file is too large.");
+    expect(uploadFailureLine({ status: 0 }, { action: "attach that file", thing: "file" })).toBe("Couldn’t attach that file — try again.");
   });
 });
