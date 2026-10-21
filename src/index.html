@@ -148,8 +148,9 @@
     .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 8px; background: var(--text); color: var(--accent-fg); font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center; }
 
     @media print {
-      body * { visibility: hidden; }
-      .modal-backdrop, .modal-backdrop * { visibility: visible; }
+      /* Out of the layout, not just hidden: a hidden page keeps its height,
+         and the copy would print after that many blank pages. */
+      body > *:not(.modal-backdrop) { display: none !important; }
       .modal-backdrop { position: static; background: none; padding: 0; display: block; }
       .modal { box-shadow: none; max-height: none; max-width: none; overflow: visible; }
       .modal-actions, .modal-close { display: none !important; }
@@ -932,6 +933,17 @@ function readFormModal() {
   });
 }
 
+// A form's settings, written to an existing row. The signature switch and
+// statement change only while the form is a draft, decided by the row's
+// stored status in the statement itself: a tab that still believes an opened
+// form is a draft cannot rewrite what members are signing.
+const UPDATE_FORM_SQL =
+  `UPDATE app_forms__forms SET title = ?, description = ?, audience_kind = ?, audience_group_id = ?, audience_member_ids = ?, `
+  + `requires_signature = CASE WHEN status = 'draft' THEN ? ELSE requires_signature END, `
+  + `signature_text = CASE WHEN status = 'draft' THEN ? ELSE signature_text END, due_date = ?, updated_at = ? WHERE id = ?`;
+const updateFormParams = (v, now, id) =>
+  [v.title, v.description, v.audience_kind, v.audience_group_id, v.audience_member_ids, v.requires_signature, v.signature_text, v.due_date, now, id];
+
 async function saveForm(existingId) {
   const host = modalEl;
   const draft = readFormModal();
@@ -943,16 +955,7 @@ async function saveForm(existingId) {
   const now = new Date().toISOString();
   try {
     if (existingId) {
-      // The signature switch and statement change only while the form is a
-      // draft, decided by the row's stored status in the statement itself: a
-      // tab that still believes an opened form is a draft cannot rewrite what
-      // members are signing.
-      const { changed } = await db(
-        `UPDATE app_forms__forms SET title = ?, description = ?, audience_kind = ?, audience_group_id = ?, audience_member_ids = ?, `
-        + `requires_signature = CASE WHEN status = 'draft' THEN ? ELSE requires_signature END, `
-        + `signature_text = CASE WHEN status = 'draft' THEN ? ELSE signature_text END, due_date = ?, updated_at = ? WHERE id = ?`,
-        [v.title, v.description, v.audience_kind, v.audience_group_id, v.audience_member_ids, v.requires_signature, v.signature_text, v.due_date, now, existingId],
-      );
+      const { changed } = await db(UPDATE_FORM_SQL, updateFormParams(v, now, existingId));
       if (DB && Number(changed ?? 0) === 0) {
         const still = (await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [existingId])).rows?.length > 0;
         throw userError(failureLine(null, { action: "save the form", thing: "form", found: still }));
@@ -970,6 +973,8 @@ async function saveForm(existingId) {
       }
     } else {
       const id = host ? (host.dataset.rowId ||= crypto.randomUUID()) : crypto.randomUUID();
+      // The row as stored, when this save had to find out what landed.
+      let stored = null;
       try {
         await db(
           `INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
@@ -977,10 +982,16 @@ async function saveForm(existingId) {
         );
       } catch (e) {
         if (!outcomeUnknown(e)) throw e;
-        const stored = (await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0];
-        if (!stored) throw e;
+        if (!(await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0]) throw e;
+        // An earlier try of this dialog created the row, and its answer was
+        // lost. The dialog may have been edited since: what it shows now is
+        // written onto that row, and the list holds the row as stored.
+        const { changed } = await db(UPDATE_FORM_SQL, updateFormParams(v, now, id));
+        if (Number(changed ?? 0) === 0) throw userError(failureLine(null, { action: "save the form", thing: "form", found: true, guarded: true }));
+        stored = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0] ?? null;
+        if (!stored) throw userError(failureLine(null, { action: "save the form", thing: "form", found: false }));
       }
-      forms = [{ id, ...v, status: "draft", closes_at: null, created_by: ME?.id ?? "demo", created_at: now, updated_at: now, opened_at: null, closed_at: null }, ...forms];
+      forms = [stored ?? { id, ...v, status: "draft", closes_at: null, created_by: ME?.id ?? "demo", created_at: now, updated_at: now, opened_at: null, closed_at: null }, ...forms.filter(f => f.id !== id)];
       if (host) delete host.dataset.rowId;
       closeModal(host);
       currentTab = "drafts";

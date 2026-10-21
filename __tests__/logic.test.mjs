@@ -489,6 +489,13 @@ describe("schema and manifest agree", () => {
     expect(html.match(/closeModal\(host\)/g)).toHaveLength(4);
     // The unconditional close is for opening a new dialog, the backdrop and the close button only.
     expect(html.match(/closeModal\(\)/g)).toHaveLength(3);
+    // A retried create that finds its row already there writes the dialog's
+    // values onto it and shows the stored row, never values it did not save.
+    expect(html).toContain("const { changed } = await db(UPDATE_FORM_SQL, updateFormParams(v, now, id));");
+    expect(html).toContain("forms = [stored ?? { id, ...v,");
+    // A printed copy starts on the first page: the app leaves the print layout.
+    expect(html).toContain("body > *:not(.modal-backdrop) { display: none !important; }");
+    expect(html).not.toContain("visibility: hidden");
     // The signer types their name: the box is never filled in for them.
     expect(html).toContain('value="${esc(fillState.signature.name ?? "")}"');
     // One notice for a submitted copy, whatever the form's state since.
