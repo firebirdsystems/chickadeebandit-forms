@@ -1,0 +1,306 @@
+{
+  "$schema": "https://chickadeebandit.com/manifest-schema.json",
+  "id": "forms",
+  "contexts": [
+    "household",
+    "shared_space",
+    "shared_space.roster"
+  ],
+  "name": "Forms",
+  "version": "1.0.0",
+  "description": "Questionnaires, waivers and welcome packets. Build a form from questions, documents to read and a signature, give it to everyone, a group or chosen members, see who has not finished, and keep each signed copy. An intake link lets people fill in a short form before they join.",
+  "entrypoint": "index.html",
+  "runtime": "static",
+  "category": "general",
+  "tags": [
+    "forms",
+    "waivers",
+    "intake",
+    "signatures",
+    "questionnaires",
+    "organization",
+    "classroom",
+    "hoa"
+  ],
+  "icon": "📋",
+  "nav": {
+    "label": "Forms"
+  },
+  "data_access": {
+    "reads": [
+      "family.members",
+      "family.groups",
+      "family.app_members"
+    ],
+    "writes": []
+  },
+  "permissions": {
+    "default_audience": "everyone",
+    "requires_approval": false
+  },
+  "storage": "db",
+  "preload": {
+    "forms": {
+      "sql": "SELECT * FROM app_forms__forms WHERE status != 'archived' ORDER BY id ASC LIMIT 200"
+    },
+    "mine": {
+      "sql": "SELECT * FROM app_forms__submissions WHERE member_id = ? ORDER BY id ASC LIMIT 200",
+      "params": [
+        ":me"
+      ]
+    },
+    "settings": {
+      "sql": "SELECT value FROM app_forms__settings WHERE key = 'reviewers_group_id'"
+    }
+  },
+  "db_plaintext_columns": [
+    "audience_kind",
+    "audience_member_ids",
+    "closed_windows",
+    "guest_name",
+    "guest_email",
+    "guest_phone",
+    "guest_note",
+    "source"
+  ],
+  "row_policies": {
+    "forms": {
+      "kind": "adult_writable",
+      "steward_writes_only": true
+    },
+    "questions": {
+      "kind": "adult_writable",
+      "steward_writes_only": true,
+      "frozen_when": {
+        "parent_table": "forms",
+        "fk_column": "form_id",
+        "status_column": "status",
+        "locked_values": [
+          "open",
+          "closed",
+          "archived"
+        ]
+      }
+    },
+    "submissions": {
+      "kind": "owner_or_visibility",
+      "member_column": "member_id",
+      "visibility_column": "status",
+      "everyone_values": [],
+      "adult_values": [],
+      "privileged_groups": [
+        {
+          "settings_table": "settings",
+          "settings_key": "reviewers_group_id",
+          "actions": [
+            "select"
+          ]
+        }
+      ],
+      "privileged_values": [
+        "submitted"
+      ],
+      "write_owner_only": true,
+      "max_per_member": {
+        "member_column": "member_id",
+        "scope_columns": [
+          "form_id"
+        ],
+        "limit": 1
+      },
+      "frozen_when": {
+        "status_column": "status",
+        "locked_values": [
+          "submitted"
+        ]
+      },
+      "column_write_acls": {
+        "form_id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "member_id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "created_at": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        }
+      }
+    },
+    "intake": {
+      "kind": "adult_only",
+      "steward_writes_only": true,
+      "steward_reads_only": true,
+      "audit_writes": true,
+      "max_rows": 5000,
+      "column_write_acls": {
+        "id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "form_id": {
+          "writable_by": []
+        },
+        "guest_name": {
+          "writable_by": []
+        },
+        "guest_email": {
+          "writable_by": []
+        },
+        "guest_phone": {
+          "writable_by": []
+        },
+        "guest_note": {
+          "writable_by": []
+        },
+        "source": {
+          "writable_by": []
+        },
+        "created_at": {
+          "writable_by": []
+        }
+      }
+    },
+    "settings": {
+      "kind": "app_config"
+    }
+  },
+  "file_columns": {
+    "questions": {
+      "columns": [
+        "file_id"
+      ]
+    }
+  },
+  "file_acls": {
+    "write": {
+      "require_role": "adult",
+      "roster_steward_only": true
+    }
+  },
+  "admin_config": {
+    "settings_table": "settings",
+    "keys": [
+      "reviewers_group_id"
+    ]
+  },
+  "member_references": {
+    "forms": [
+      {
+        "column": "created_by",
+        "on_removed": "keep"
+      },
+      {
+        "column": "audience_member_ids",
+        "on_removed": "prune_list"
+      }
+    ],
+    "submissions": {
+      "column": "member_id",
+      "on_removed": "keep"
+    }
+  },
+  "delete_cascades": {
+    "forms": [
+      {
+        "table": "questions",
+        "foreign_key": "form_id",
+        "file_id_column": "file_id"
+      },
+      {
+        "table": "intake",
+        "foreign_key": "form_id"
+      }
+    ]
+  },
+  "shareable": {
+    "form": {
+      "table": "forms",
+      "title_column": "title",
+      "columns": [
+        {
+          "column": "description",
+          "label": "About",
+          "format": "multiline"
+        }
+      ],
+      "visible_where": {
+        "column": "status",
+        "values": [
+          "open"
+        ]
+      },
+      "submit": {
+        "table": "intake",
+        "fk_column": "form_id",
+        "fields": [
+          {
+            "column": "guest_name",
+            "label": "Your name",
+            "type": "text",
+            "required": true,
+            "max_length": 80
+          },
+          {
+            "column": "guest_email",
+            "label": "Email",
+            "type": "text",
+            "max_length": 120
+          },
+          {
+            "column": "guest_phone",
+            "label": "Phone",
+            "type": "text",
+            "max_length": 40
+          },
+          {
+            "column": "guest_note",
+            "label": "Anything else?",
+            "type": "multiline",
+            "max_length": 1000
+          }
+        ],
+        "fixed_values": {
+          "source": "external"
+        },
+        "timestamp_columns": [
+          "created_at"
+        ],
+        "until_column": "closes_at",
+        "max_submissions": 200
+      }
+    }
+  },
+  "agenda": {
+    "kind": "task",
+    "source": {
+      "kind": "sql",
+      "query": "SELECT f.id AS id, f.title AS title, f.due_date AS when_at, CASE WHEN s.status = 'submitted' THEN 1 ELSE 0 END AS done FROM app_forms__forms f LEFT JOIN app_forms__submissions s ON s.form_id = f.id AND s.member_id = :me WHERE f.status = 'open' AND f.due_date BETWEEN :range_start AND :range_end AND (f.audience_kind != 'members' OR instr(f.audience_member_ids, '\"' || :me || '\"') > 0) ORDER BY f.due_date LIMIT 20"
+    }
+  },
+  "glance": {
+    "source": {
+      "kind": "sql",
+      "query": "SELECT f.title AS title, f.due_date AS at FROM app_forms__forms f LEFT JOIN app_forms__submissions s ON s.form_id = f.id AND s.member_id = :me AND s.status = 'submitted' WHERE f.status = 'open' AND s.id IS NULL AND (f.audience_kind != 'members' OR instr(f.audience_member_ids, '\"' || :me || '\"') > 0) ORDER BY (f.due_date IS NULL), f.due_date, f.created_at DESC LIMIT 3"
+    },
+    "display": {
+      "template": "list",
+      "title": "title",
+      "when": "at"
+    }
+  },
+  "resource_limits": {
+    "max_file_bytes": 10485760,
+    "max_files_bytes": 268435456
+  }
+}

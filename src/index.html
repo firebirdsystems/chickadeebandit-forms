@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forms</title>
+  <base href="/run/forms/" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           var(--hub-bg, #f9fafb);
+      --card:         var(--hub-surface, #ffffff);
+      --border:       var(--hub-border, #e5e7eb);
+      --border-mid:   var(--hub-border, #d1d5db);
+      --text:         var(--hub-text, #000000);
+      --muted:        var(--hub-text-muted, #6b7280);
+      --accent:       var(--hub-primary, #111827);
+      --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg:    var(--hub-primary-fg, #ffffff);
+      --radius:       var(--hub-radius, 0.5rem);
+      --shadow:       0 1px 3px rgba(0,0,0,.07);
+      --shadow-md:    0 4px 12px rgba(0,0,0,.1);
+      --red:          var(--hub-tint-danger-fg, #dc2626);
+      --red-light:    var(--hub-tint-danger, #fee2e2);
+      --green:        var(--hub-tint-success-fg, #059669);
+      --green-light:  var(--hub-tint-success, #d1fae5);
+      --amber:        var(--hub-tint-warning-fg, #d97706);
+      --amber-light:  var(--hub-tint-warning, #fef3c7);
+    }
+
+    body {
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      font-size: var(--hub-font-size, 15px); line-height: 1.5;
+    }
+    .app { max-width: 760px; margin: 0 auto; padding: 16px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; text-decoration: none;
+      transition: opacity .15s, background .15s; font-family: inherit;
+    }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .btn-primary { background: var(--accent); color: var(--accent-fg); }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1.5px solid var(--border-mid); }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-success { background: var(--green); color: white; }
+    .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+    .btn-xs { padding: 3px 8px; font-size: 0.75rem; border-radius: 6px; }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+    .page-header h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+    .tab {
+      padding: 8px 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; background: transparent;
+      color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 0.7rem; font-weight: 700; background: var(--red); color: white; line-height: 1; }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .list-more { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .form-card { cursor: pointer; transition: box-shadow .15s; }
+    .form-card:hover { box-shadow: var(--shadow-md); }
+    .card-inner { padding: 14px 16px; }
+    .card-title { font-weight: 700; font-size: 1rem; }
+    .card-desc { font-size: 0.875rem; color: var(--muted); margin: 4px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+    .meta-dot::before { content: "·"; margin-right: 10px; }
+
+    .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+    .status-draft    { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+    .status-open     { background: var(--green-light); color: var(--green); }
+    .status-closed   { background: var(--amber-light); color: var(--amber); }
+    .status-archived { background: var(--bg); color: var(--muted); }
+    .status-done     { background: var(--green-light); color: var(--green); }
+    .status-todo     { background: var(--red-light); color: var(--red); }
+    .status-sign     { background: var(--amber-light); color: var(--amber); }
+
+    .notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.85rem; }
+    .notice.warn { background: var(--amber-light); border: 1.5px solid #fcd34d; color: var(--amber); font-weight: 600; }
+    .notice.info { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+    .notice.ok { background: var(--green-light); border: 1.5px solid #6ee7b7; color: var(--green); font-weight: 600; }
+    .notice.bad { background: var(--red-light); border: 1.5px solid #fca5a5; color: var(--red); font-weight: 600; }
+
+    .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+    .empty-icon { margin-bottom: 12px; }
+    .load-error { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.9rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .load-error-retry { background: none; border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; color: inherit; cursor: pointer; flex-shrink: 0; }
+    .inline-error { color: var(--red); font-size: 0.85rem; margin-top: 8px; font-weight: 600; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .modal { background: var(--card); border-radius: calc(var(--radius) * 1.5); box-shadow: var(--shadow-md); width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 0; gap: 8px; }
+    .modal-header h2 { font-size: 1.1rem; font-weight: 700; flex: 1; min-width: 0; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1.25rem; line-height: 1; padding: 4px; }
+    .modal-body { padding: 16px 20px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 20px 18px; flex-wrap: wrap; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group > label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
+    .form-group input[type="text"], .form-group input[type="date"], .form-group input[type="number"], .form-group input[type="url"],
+    .form-group textarea, .form-group select {
+      width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.9rem;
+      font-family: inherit; color: var(--text); background: var(--bg); resize: vertical;
+    }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+    .form-hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 0.9rem; margin: 6px 0; cursor: pointer; }
+    .check-row input { margin-top: 4px; }
+    .toggle-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; }
+    .toggle-row label { flex: 1; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+
+    .section { margin-top: 18px; }
+    .section h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .section h3 .spacer { flex: 1; }
+    .detail-desc { white-space: pre-wrap; word-break: break-word; color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; }
+    .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+    .question { padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); margin-bottom: 10px; }
+    .q-label { font-weight: 600; font-size: 0.95rem; }
+    .q-req { color: var(--red); margin-left: 3px; }
+    .q-help { font-size: 0.8rem; color: var(--muted); margin: 2px 0 6px; }
+    .q-body { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin: 6px 0; max-height: 320px; overflow-y: auto; }
+    .q-type { font-size: 0.75rem; color: var(--muted); }
+    .q-row { display: flex; align-items: center; gap: 8px; }
+    .q-row .grow { flex: 1; min-width: 0; }
+    .answer { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+    .answer.none { color: var(--muted); font-style: italic; }
+    .link-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; margin: 2px 4px 2px 0; }
+
+    .signature-box { border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 12px 14px; margin-top: 14px; background: var(--bg); }
+    .signature-box .statement { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; margin-bottom: 10px; }
+    .signed-line { font-family: "Georgia", serif; font-size: 1.1rem; font-style: italic; }
+
+    table.completion { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    table.completion th, table.completion td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    table.completion th { color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+
+    .search-row { margin-bottom: 12px; }
+    .search-input { width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 9px 11px; font: inherit; background: var(--card); color: var(--text); }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 8px; background: var(--text); color: var(--accent-fg); font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center; }
+
+    @media print {
+      body * { visibility: hidden; }
+      .modal-backdrop, .modal-backdrop * { visibility: visible; }
+      .modal-backdrop { position: static; background: none; padding: 0; display: block; }
+      .modal { box-shadow: none; max-height: none; max-width: none; overflow: visible; }
+      .modal-actions, .modal-close { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="page-header">
+    <h1><span id="page-glyph"></span> Forms</h1>
+    <div style="display:flex;gap:8px;align-items:center" id="header-actions"></div>
+  </div>
+  <div id="notice" data-testid="notice"></div>
+  <div id="tabs" class="tabs" data-testid="tabs"></div>
+  <div class="search-row" id="search-row" style="display:none">
+    <input id="search" data-testid="search" class="search-input" type="search" placeholder="Search forms…" aria-label="Search forms" />
+  </div>
+  <div id="main" data-testid="main"></div>
+</div>
+
+<script type="module">
+import {
+  hubAlert, hubConfirm, esc, isAdult, formatRelativeDate, searchMatch, hubToday, glyph, chickadee,
+  createFilesHelper, createShareHelper, activeShareLinks, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+  sendHubNotification, hubAppUrl, logHubActivity,
+} from "/hub-sdk.js";
+import { createShareUi, createOverlayView } from "/hub-share-ui.js";
+import {
+  QUESTION_TYPES, MAX_QUESTIONS, MAX_INTAKE_PER_LINK,
+  OPEN_FORM_SQL, CLOSE_FORM_SQL, REOPEN_FORM_SQL, ARCHIVE_FORM_SQL, SUBMIT_SQL, SUBMIT_SIGNED_SQL, FORM_STATE_SQL,
+  parseObject, parseStrings, isFileId,
+  canManage as _canManage, canReview as _canReview, reviewersProblem, resolveCurrentMember,
+  audienceIds, inAudience, audienceLabel, completion, termsHash, submissionIntact, notifyAudience, safeLink,
+  formDraft, questionDraft, cleanAnswers, cleanSignature, answerText,
+  todoForms, byDueThenNewest, formById, mySubmission, isOverdue, searchableFields, formatDay, formatWhen, submittedWhileClosed, endClosedSpell,
+  outcomeUnknown, failureLine, uploadFailureLine,
+} from "./logic.js";
+
+document.getElementById("page-glyph").innerHTML = glyph("checklist");
+
+const CONTEXT          = window.__CONTEXT_URL      ?? "";
+const DB               = window.__DB_URL           ?? "";
+const APP_ID           = window.__APP_ID           ?? "forms";
+const ADMIN_CONFIG_URL = window.__ADMIN_CONFIG_URL ?? "";
+const FILES_URL        = window.__FILES_URL        ?? "";
+const IN_HUB           = !!DB;
+const TENANT = { tenantKind: window.__TENANT_KIND ?? "household", spaceKind: window.__SPACE_KIND ?? null, isAdmin: window.__IS_ADMIN === true };
+const hubAdmin = window.__CURRENT_MEMBER?.isAdmin === true || TENANT.isAdmin;
+
+let ME = null;
+let members = [];
+let appMembers = null;
+let groups = [];
+let reviewersGroupId = null;
+let forms = [];
+let mine = [];                 // this member's submissions
+const questionsByForm = new Map();
+const submissionsByForm = new Map();   // reviewers only
+const intakeByForm = new Map();
+let currentTab = "todo";
+let searchQ = "";
+let view = { kind: "list" };   // or { kind: "form", id }
+let modalEl = null;
+let loadFailed = false;
+const fillState = { formId: null, answers: {}, signature: { name: null, agreed: false }, error: "" };
+// Forms whose questions could not be read on the last try. Until a read
+// succeeds the page offers no way to answer, sign or submit: an unread form
+// is not a form with no questions.
+const questionsFailed = new Set();
+
+function canManage() { return _canManage(isAdult(ME), TENANT); }
+function canReview() { return _canReview(ME, groups, reviewersGroupId, TENANT); }
+// A roster participant sees only the steward and themselves; nobody else
+// sees a partial roster.
+const COMPLETE_ROSTER = TENANT.spaceKind !== "roster" || TENANT.isAdmin;
+const ctx = () => ({ groups, appMembers, members, complete: COMPLETE_ROSTER });
+function memberName(id) { return members.find(m => m.id === id)?.name ?? "Someone"; }
+
+// A read step's document: uploaded by the builder, opened by every member who
+// can read the question (the hub's default file rule).
+const files = createFilesHelper(FILES_URL);
+const DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+const docLink = (q) => isFileId(q.file_id)
+  ? `<p><a class="link-chip" data-testid="read-document" href="${esc(files.url(q.file_id))}" target="_blank" rel="noopener">${glyph("document")} ${esc(q.file_name || "Open the document")}</a></p>`
+  : "";
+
+// ── Share links (intake) ─────────────────────────────────────────────────────
+
+const share = createShareHelper(window.__SHARE_CREATE_URL, window.__SHARE_REVOKE_URL, window.__SHARE_LIST_URL);
+const shareView = createOverlayView(document);
+const shareUi = createShareUi({
+  share, itemType: "form", noun: "form",
+  writable: true, writableVerb: "send their details",
+  scopeHtml: () => `The page shows the form’s title and description, and a short intake form: a name, an email, a phone number and a note. Nothing a member answered is on it. Each link takes up to ${MAX_INTAKE_PER_LINK} submissions.`,
+  esc, glyph,
+  confirm: (message, opts) => hubConfirm({ message, ...opts, destructive: true }),
+  writeText: (text) => navigator.clipboard.writeText(text),
+  activeLinks: activeShareLinks, expiryChoices: SHARE_EXPIRY_CHOICES, defaultExpiryHours: DEFAULT_SHARE_EXPIRY_HOURS,
+  getMe: () => ME, isAdmin: () => hubAdmin,
+  memberName: (id) => members.find(m => m.id === id)?.name ?? "",
+  view: shareView,
+});
+shareView.bind(shareUi);
+
+// ── DB helpers ───────────────────────────────────────────────────────────────
+
+async function db(sql, params = []) {
+  if (!DB) return { rows: [], changed: 0 };
+  const res = await fetch(DB, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, params }) });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw Object.assign(new Error(json?.error || `Database request failed (${res.status})`), { status: res.status, code: json?.code });
+  return json;
+}
+
+async function dbBatch(statements) {
+  if (!DB || statements.length === 0) return { results: [] };
+  const res = await fetch(DB, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statements }) });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw Object.assign(new Error(json?.error || `Database request failed (${res.status})`), { status: res.status, code: json?.code });
+  return json;
+}
+
+function userError(msg) { return Object.assign(new Error(msg), { forUser: true }); }
+
+// ── Loading ──────────────────────────────────────────────────────────────────
+
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [
+      { id: "demo-1", name: "Alex", role: "admin", isAdmin: true },
+      { id: "demo-2", name: "Jamie", role: "adult" },
+      { id: "demo-3", name: "Casey", role: "child" },
+    ];
+    groups = [{ id: "g-board", name: "Board", memberIds: ["demo-1", "demo-2"] }];
+    appMembers = null;
+    return;
+  }
+  const res = await fetch(`${CONTEXT}?keys=family.members,family.groups,family.app_members`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || typeof data !== "object" || data.error) throw new Error("Couldn’t reach the hub. Try again.");
+  if (Array.isArray(data.$errors) && ["family.members", "family.groups", "family.app_members"].some(k => data.$errors.includes(k))) throw new Error("Couldn’t reach the hub. Try again.");
+  members = data["family.members"] ?? [];
+  groups = data["family.groups"] ?? [];
+  appMembers = data["family.app_members"] ?? null;
+}
+
+async function loadSettings() {
+  if (!DB) return;
+  const { rows } = await db(`SELECT value FROM app_forms__settings WHERE key = 'reviewers_group_id'`);
+  reviewersGroupId = rows?.[0]?.value || null;
+}
+
+// ── Paged reads ──────────────────────────────────────────────────────────────
+
+// The page size. Statements read in full spell it as the literal `LIMIT 200`,
+// because manifest.preload must match the first one's text exactly, so
+// readAllById refuses a statement that says otherwise.
+const PAGE = 200;
+
+/** Every row `first` matches, in pages on the primary key, the one column
+ *  always comparable. `first` has a WHERE and ends `ORDER BY id ASC LIMIT
+ *  200`; each later page adds `AND id > ?` with the last id seen. */
+async function readAllById(first, params = []) {
+  const tail = ` ORDER BY id ASC LIMIT ${PAGE}`;
+  if (!first.endsWith(tail) || !first.includes(" WHERE ")) throw new Error(`A paged read needs a WHERE and must end${tail}`);
+  const next = `${first.slice(0, -tail.length)} AND id > ?${tail}`;
+  let { rows } = await db(first, params);
+  const all = [...(rows ?? [])];
+  while (rows?.length === PAGE) {
+    ({ rows } = await db(next, [...params, rows[rows.length - 1].id]));
+    all.push(...(rows ?? []));
+  }
+  return all;
+}
+
+/** One page of `table`, newest first, after `cursor` (the last row of the
+ *  page before, or null for the first). Keyset on (created_at, id), both
+ *  plaintext. Returns the rows and the cursor for the next page, null once
+ *  there is none. */
+async function readNewestPage(table, where, params, cursor) {
+  const after = cursor ? " AND (created_at < ? OR (created_at = ? AND id < ?))" : "";
+  const { rows } = await db(
+    `SELECT * FROM ${table} WHERE ${where}${after} ORDER BY created_at DESC, id DESC LIMIT ${PAGE}`,
+    cursor ? [...params, cursor.created_at, cursor.created_at, cursor.id] : params,
+  );
+  const list = rows ?? [];
+  const last = list[list.length - 1];
+  return { rows: list, cursor: list.length === PAGE && last ? { created_at: last.created_at, id: last.id } : null };
+}
+
+// "Show older" loads in flight, by key: a redraw draws a fresh, enabled
+// button, and a second press would append the same page twice.
+const loadingMore = new Set();
+function loadMore(key, load, failure) {
+  if (loadingMore.has(key)) return;
+  loadingMore.add(key);
+  render();
+  load().catch(err => { console.error(err); toast(failure); }).finally(() => { loadingMore.delete(key); render(); });
+}
+
+async function loadForms() {
+  if (!DB) return;
+  // Every live form: To do and the agenda must see an old open form however
+  // many newer ones sit above it. The page sorts for display. The first
+  // statement is the one manifest.preload answers.
+  forms = await readAllById(`SELECT * FROM app_forms__forms WHERE status != 'archived' ORDER BY id ASC LIMIT 200`);
+  // The archive loaded before is gone with the list it was merged into.
+  archivedLoaded = false;
+  archiveCursor = null;
+}
+
+// A builder's Archived tab pages through every archived form, newest first,
+// 200 at a time ("Show older"); a member's holds only the archived forms they
+// signed (loadSignedForms).
+let archivedLoaded = false;
+let archiveCursor = null;  // the last row loaded, or null when the archive is complete
+async function loadArchived({ more = false } = {}) {
+  if (!DB) return;
+  const page = await readNewestPage("app_forms__forms", "status = 'archived'", [], more ? archiveCursor : null);
+  mergeForms(page.rows);
+  archiveCursor = page.cursor;
+  archivedLoaded = true;
+}
+
+function mergeForms(rows) {
+  const byId = new Map(forms.map(f => [f.id, f]));
+  for (const row of rows) byId.set(row.id, row);
+  forms = [...byId.values()];
+}
+
+// Every submission of mine, in pages: a member's row per form is what decides
+// To do, Submitted and which draft a save writes, so a capped read would show
+// an old form as unanswered and the next save would collide with the row it
+// did not load. Paged on the primary key, the one column always comparable.
+// The first statement is the one manifest.preload answers at boot.
+async function loadMine() {
+  if (!DB || !ME?.id) return;
+  mine = await readAllById(`SELECT * FROM app_forms__submissions WHERE member_id = ? ORDER BY id ASC LIMIT 200`, [ME.id]);
+}
+
+/** This member's row for one form, read directly and merged in. */
+async function loadMineFor(formId) {
+  if (!DB || !ME?.id) return null;
+  const { rows } = await db(`SELECT * FROM app_forms__submissions WHERE form_id = ? AND member_id = ?`, [formId, ME.id]);
+  const row = rows?.[0] ?? null;
+  mine = [...mine.filter(s => s.form_id !== formId), ...(row ? [row] : [])];
+  return row;
+}
+
+// 2. The forms behind my signed copies that the live list did not load (an
+// archived form, or one older than its cap), so a member can always reopen
+// and print what they signed. Read by id, in chunks under the bound-parameter limit.
+async function loadSignedForms() {
+  if (!DB) return;
+  const have = new Set(forms.map(f => f.id));
+  const missing = [...new Set(mine.filter(s => s.status === "submitted" && !have.has(s.form_id)).map(s => s.form_id))];
+  for (let i = 0; i < missing.length; i += 90) {
+    const ids = missing.slice(i, i + 90);
+    const { rows } = await db(`SELECT * FROM app_forms__forms WHERE id IN (${ids.map(() => "?").join(", ")})`, ids);
+    mergeForms(rows ?? []);
+  }
+}
+
+async function loadQuestions(formId) {
+  if (!DB) return questionsByForm.get(formId) ?? [];
+  const { rows } = await db(`SELECT * FROM app_forms__questions WHERE form_id = ? ORDER BY position ASC, id ASC`, [formId]);
+  questionsByForm.set(formId, rows ?? []);
+  return rows ?? [];
+}
+
+// Every submission to one form, in pages: the completion counts and the
+// reminders read the whole list, so a capped read would show a member who
+// signed as outstanding. Sorted here for display, newest copy first.
+async function loadSubmissions(formId) {
+  if (!DB) return submissionsByForm.get(formId) ?? [];
+  const all = await readAllById(`SELECT * FROM app_forms__submissions WHERE form_id = ? ORDER BY id ASC LIMIT 200`, [formId]);
+  const at = (s) => String(s.submitted_at ?? "");
+  all.sort((x, y) => (!x.submitted_at - !y.submitted_at) || at(y).localeCompare(at(x)) || String(y.updated_at ?? "").localeCompare(String(x.updated_at ?? "")));
+  submissionsByForm.set(formId, all);
+  return all;
+}
+
+// A form's outside submissions, newest first, a page at a time ("Show
+// older"): the table holds up to 5,000. intakeCursor holds the last row
+// loaded per form, or null once that form's list is complete.
+const intakeCursor = new Map();
+async function loadIntake(formId, { more = false } = {}) {
+  if (!DB) return intakeByForm.get(formId) ?? [];
+  const page = (cursor) => readNewestPage("app_forms__intake", "form_id = ?", [formId], cursor);
+  let list;
+  let cursor;
+  if (more) {
+    if (!intakeCursor.get(formId)) return intakeByForm.get(formId) ?? [];
+    const next = await page(intakeCursor.get(formId));
+    // Merged by id: a refresh may have landed while this page was loading.
+    const seen = new Set((intakeByForm.get(formId) ?? []).map(r => r.id));
+    list = [...(intakeByForm.get(formId) ?? []), ...next.rows.filter(r => !seen.has(r.id))];
+    cursor = next.cursor;
+  } else {
+    // A refresh reads the newest page only and keeps the older pages the
+    // builder had already opened. Within the fresh page the hub's rows are
+    // the truth (a row missing there was removed); older rows stay until
+    // the next load, as does the cursor past them.
+    const fresh = await page(null);
+    const had = intakeByForm.get(formId) ?? [];
+    const last = fresh.rows[fresh.rows.length - 1];
+    const older = (r) => !!fresh.cursor && !!last
+      && (String(r.created_at) < String(last.created_at) || (r.created_at === last.created_at && String(r.id) < String(last.id)));
+    // The older rows join on only if the fresh page reaches them: when more
+    // than a page arrived since the last load, the rows between the two were
+    // never read, and keeping the old cursor would skip them for good.
+    const reaches = had.length > 0 && !older(had[0]);
+    const kept = reaches ? had.filter(older) : [];
+    list = [...fresh.rows, ...kept];
+    cursor = kept.length ? intakeCursor.get(formId) ?? null : fresh.cursor;
+  }
+  intakeCursor.set(formId, cursor);
+  intakeByForm.set(formId, list);
+  return list;
+}
+
+// ── Render: shell ────────────────────────────────────────────────────────────
+
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "search") return;
+  searchQ = e.target.value;
+  renderMain();
+});
+
+function render() {
+  // The header controls exist only for whoever may use them: a hidden button
+  // is still a button in the DOM, and a page that only hides what the hub
+  // would refuse reads as offering it.
+  const actions = document.getElementById("header-actions");
+  if (actions) {
+    actions.innerHTML = [
+      hubAdmin && IN_HUB ? `<button class="btn btn-ghost" data-testid="settings" aria-label="Reviewer settings" data-action="settings">${glyph("gear")}</button>` : "",
+      canManage() && !loadFailed ? `<button class="btn btn-primary" data-testid="new-form" data-action="new">New form</button>` : "",
+    ].join("");
+  }
+  renderNotice();
+  renderTabs();
+  renderMain();
+}
+
+function renderNotice() {
+  const el = document.getElementById("notice");
+  if (!el) return;
+  if (!IN_HUB || !canManage()) { el.innerHTML = ""; return; }
+  const problem = reviewersProblem(groups, reviewersGroupId, { spaceKind: TENANT.spaceKind, memberId: ME?.id });
+  if (!problem) { el.innerHTML = ""; return; }
+  const cause = {
+    unset: "No reviewers group is set",
+    missing: "The reviewers group has been deleted",
+    empty: "The reviewers group has no members",
+    no_steward: "You are not in the reviewers group, and here only the steward in that group can read submissions",
+  }[problem];
+  el.innerHTML = hubAdmin
+    ? `<div class="notice warn"><span>${cause}, so nobody can read what members submit. Submissions are kept either way.</span><button class="btn btn-primary btn-sm" data-action="settings">${problem === "unset" ? "Set reviewers" : "Change reviewers"}</button></div>`
+    : `<div class="notice info"><span>${cause}. Ask a hub admin to set one so submissions can be reviewed.</span></div>`;
+}
+
+function renderTabs() {
+  const el = document.getElementById("tabs");
+  if (!el) return;
+  if (view.kind !== "list") { el.innerHTML = ""; el.style.display = "none"; return; }
+  el.style.display = "";
+  const todo = ME?.id ? todoForms(forms, mine, ME.id, ctx()).length : 0;
+  const tabs = [
+    ["todo", `To do ${todo ? `<span class="badge" data-testid="todo-badge">${todo}</span>` : ""}`],
+    ["all", "All forms"],
+  ];
+  if (canManage()) tabs.push(["drafts", "Drafts"], ["archived", "Archived"]);
+  else if (forms.some(f => f.status === "archived")) tabs.push(["archived", "Archived"]);
+  if (!tabs.some(([k]) => k === currentTab)) currentTab = "todo";
+  el.innerHTML = tabs.map(([key, label]) => `<button class="tab ${currentTab === key ? "active" : ""}" data-tab="${key}" data-testid="tab-${key}" data-action="tab" data-id="${key}">${label}</button>`).join("");
+}
+
+function scopedList() {
+  if (currentTab === "todo") return ME?.id ? todoForms(forms, mine, ME.id, ctx()) : [];
+  if (currentTab === "all") return forms.filter(f => f.status === "open" || f.status === "closed").sort(byDueThenNewest);
+  if (currentTab === "drafts") return forms.filter(f => f.status === "draft").sort(byDueThenNewest);
+  if (currentTab === "archived") return forms.filter(f => f.status === "archived").sort(byDueThenNewest);
+  return [];
+}
+
+function renderMain() {
+  const main = document.getElementById("main");
+  if (!main) return;
+  if (loadFailed) {
+    document.getElementById("search-row").style.display = "none";
+    main.innerHTML = `<div class="load-error" data-testid="load-error" role="alert"><span>Couldn’t load the forms.</span> <button type="button" class="load-error-retry" data-testid="load-retry">Try again</button></div>`;
+    return;
+  }
+  if (view.kind === "form") {
+    document.getElementById("search-row").style.display = "none";
+    renderFormPage(main);
+    return;
+  }
+  const scoped = scopedList();
+  document.getElementById("search-row").style.display = scoped.length ? "" : "none";
+  const items = searchQ ? scoped.filter(f => searchMatch(searchQ, searchableFields(f))) : scoped;
+  // Titles are encrypted, so the hub cannot search the archive: a search here
+  // covers the archived forms loaded so far, and says so while older ones remain.
+  const archiveIncomplete = currentTab === "archived" && canManage() && !!archiveCursor;
+  const older = archiveIncomplete
+    ? `<div class="list-more">${searchQ ? `<p class="form-hint" data-testid="archive-partial">Searching the archived forms loaded so far. Older ones are not searched yet.</p>` : ""}<button class="btn btn-ghost" data-testid="archive-more" data-action="archive-more" ${loadingMore.has("archive") ? "disabled" : ""}>Show older archived forms</button></div>`
+    : "";
+  if (items.length === 0) {
+    if (searchQ) {
+      const lead = archiveIncomplete ? `No match among the archived forms loaded so far for "${esc(searchQ)}".` : `Nothing matches "${esc(searchQ)}".`;
+      main.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${chickadee("searching")}</div><p>${lead}</p></div>${older}`;
+      return;
+    }
+    const msgs = {
+      todo: { pose: "sleeping", text: "Nothing to fill in right now." },
+      all: { pose: "nest", text: "No forms yet." },
+      drafts: { pose: "nest", text: "No drafts. Start one with New form." },
+      archived: { pose: "nest", text: "Nothing archived." },
+    };
+    const { pose, text } = msgs[currentTab] ?? msgs.all;
+    main.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${chickadee(pose)}</div><p>${text}</p></div>`;
+    return;
+  }
+  main.innerHTML = `<div class="list">${items.map(renderCard).join("")}</div>${older}`;
+}
+
+function statusBadge(status) {
+  const labels = { draft: "Draft", open: "Open", closed: "Closed", archived: "Archived" };
+  return `<span class="status-badge status-${esc(status)}" data-testid="status-badge" data-status="${esc(status)}">${labels[status] ?? esc(status)}</span>`;
+}
+
+function myBadge(form) {
+  if (!ME?.id || form.status !== "open") return "";
+  const sub = mySubmission(mine, form.id, ME.id);
+  if (sub?.status === "submitted") return `<span class="status-badge status-done" data-testid="my-state" data-state="submitted">${glyph("tick")} Submitted</span>`;
+  if (!inAudience(form, ME.id, ctx())) return "";
+  if (sub) return `<span class="status-badge status-todo" data-testid="my-state" data-state="draft">Draft saved</span>`;
+  return `<span class="status-badge status-todo" data-testid="my-state" data-state="none">To do</span>`;
+}
+
+function dueMeta(form) {
+  return form.due_date ? `<span class="meta-dot">${isOverdue(form, hubToday()) ? "Was due" : "Due"} ${formatDay(form.due_date)}</span>` : "";
+}
+
+function signatureBadge(form) {
+  return Number(form.requires_signature) ? `<span class="status-badge status-sign">${glyph("signature")} Signature</span>` : "";
+}
+
+function renderCard(form) {
+  const due = dueMeta(form);
+  const signs = signatureBadge(form);
+  return `
+    <div class="card form-card" data-testid="form-card" data-form-id="${esc(form.id)}" data-status="${esc(form.status)}" data-action="open" data-id="${esc(form.id)}">
+      <div class="card-inner">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div class="card-title" data-testid="form-title">${esc(form.title)}</div>
+          <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">${signs}${myBadge(form)}${statusBadge(form.status)}</div>
+        </div>
+        ${form.description ? `<div class="card-desc">${esc(form.description)}</div>` : ""}
+        <div class="meta"><span>${esc(audienceLabel(form, ctx()))}</span>${due}<span class="meta-dot">${formatRelativeDate(form.created_at)}</span></div>
+      </div>
+    </div>`;
+}
+
+// ── Render: one form ─────────────────────────────────────────────────────────
+
+async function openForm(id) {
+  const form = formById(forms, id);
+  if (!form) return;
+  view = { kind: "form", id };
+  if (fillState.formId !== id) {
+    Object.assign(fillState, { formId: id, answers: {}, signature: { name: null, agreed: false }, error: "" });
+    const sub = mySubmission(mine, id, ME?.id);
+    if (sub && sub.status === "draft") fillState.answers = parseObject(sub.answers);
+  }
+  render();
+  // Each read redraws the page when it lands, whatever the others do: one
+  // that fails first must not leave the page waiting on the rest.
+  const redraw = () => { if (view.kind === "form" && view.id === id) render(); };
+  const loads = [loadQuestions(id).then(
+    (rows) => { questionsFailed.delete(id); return rows; },
+    (e) => { questionsFailed.add(id); throw e; },
+  )];
+  if (canReview()) loads.push(loadSubmissions(id));
+  // A draft has no intake link yet, so nothing can have come through one.
+  if (canManage() && form.status !== "draft") loads.push(loadIntake(id));
+  const results = await Promise.allSettled(loads.map(p => p.finally(redraw)));
+  const failed = results.filter(r => r.status === "rejected");
+  if (failed.length) { failed.forEach(r => console.error(r.reason)); if (view.kind === "form" && view.id === id) toast("Couldn’t load part of this form. Try again."); }
+}
+
+function closeForm() {
+  view = { kind: "list" };
+  render();
+}
+
+function renderFormPage(main) {
+  const form = formById(forms, view.id);
+  if (!form) { closeForm(); return; }
+  // Whatever redraws the page (a read landing, an upload finishing), what the
+  // member has typed so far is taken from the inputs first, so it survives.
+  if (fillState.formId === form.id) collectAnswers(form.id);
+  const questions = questionsByForm.get(form.id) ?? [];
+  const questionsReady = questionsByForm.has(form.id);
+  const manage = canManage();
+  const review = canReview();
+  const sub = ME?.id ? mySubmission(mine, form.id, ME.id) : null;
+  const forMe = ME?.id ? inAudience(form, ME.id, ctx()) : false;
+  const due = dueMeta(form);
+
+  let fill = "";
+  // A submitted copy is the member's answer whatever the form's state since.
+  if (sub?.status === "submitted") {
+    fill = `<div class="notice ok" data-testid="submitted-notice"><span>${glyph("tick")} You submitted this ${formatRelativeDate(sub.submitted_at)}.</span><button class="btn btn-ghost btn-sm" data-testid="view-mine" data-action="view-mine" data-id="${esc(form.id)}">View your copy</button></div>`;
+  } else if (form.status === "open" && forMe && questionsFailed.has(form.id)) {
+    fill = `<div class="load-error" data-testid="questions-error" role="alert"><span>Couldn’t load this form’s questions.</span> <button type="button" class="load-error-retry" data-action="retry-questions" data-id="${esc(form.id)}">Try again</button></div>`;
+  } else if (form.status === "open" && forMe && !questionsReady) {
+    fill = `<div class="notice info" data-testid="questions-loading"><span>Loading the questions…</span></div>`;
+  } else if (form.status === "open" && forMe && questions.length === 0) {
+    fill = `<div class="notice info" data-testid="no-questions"><span>This form has no questions, so there is nothing to fill in. Ask whoever made it.</span></div>`;
+  } else if (form.status === "open" && forMe) {
+    fill = renderFill(form, questions, sub);
+  } else if (form.status === "open") {
+    fill = `<div class="notice info" data-testid="not-for-you"><span>This form is for ${esc(audienceLabel(form, ctx()))}.</span></div>`;
+  } else if (form.status === "closed") {
+    fill = `<div class="notice info"><span>This form is closed and no longer takes submissions.</span></div>`;
+  } else if (form.status === "archived") {
+    fill = `<div class="notice info"><span>This form is archived and no longer takes submissions.</span></div>`;
+  } else if (form.status === "draft" && !manage) {
+    fill = `<div class="notice info"><span>This form is still being written.</span></div>`;
+  }
+
+  main.innerHTML = `
+    <div data-testid="form-page" data-form-id="${esc(form.id)}">
+      <div class="actions-row" style="margin:0 0 10px"><button class="btn btn-ghost btn-sm" data-testid="back" data-action="back">← All forms</button></div>
+      <div class="card"><div class="card-inner">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <h2 style="font-size:1.15rem;font-weight:700" data-testid="detail-title">${esc(form.title)}</h2>
+          <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">${signatureBadge(form)}${statusBadge(form.status)}</div>
+        </div>
+        ${form.description ? `<p class="detail-desc" style="margin-top:6px">${esc(form.description)}</p>` : ""}
+        <div class="meta"><span>${esc(audienceLabel(form, ctx()))}</span>${due}<span class="meta-dot">Created by ${esc(memberName(form.created_by))}</span></div>
+      </div></div>
+      <div class="section">${fill}</div>
+      ${manage ? renderManage(form, questions) : ""}
+      ${review ? renderReview(form) : ""}
+      ${manage ? renderIntake(form) : ""}
+    </div>`;
+}
+
+function renderQuestionInput(q, value) {
+  // Escaped: a question id is a column any adult can write by raw SQL, and it
+  // lands inside attributes below.
+  const id = `ans-${esc(q.id)}`;
+  const name = `data-q="${esc(q.id)}"`;
+  switch (q.type) {
+    case "text": return `<input type="text" id="${id}" ${name} maxlength="4000" value="${esc(value ?? "")}" />`;
+    case "multiline": return `<textarea id="${id}" ${name} rows="3" maxlength="4000">${esc(value ?? "")}</textarea>`;
+    case "number": return `<input type="number" id="${id}" ${name} value="${esc(value ?? "")}" />`;
+    case "date": return `<input type="date" id="${id}" ${name} value="${esc(value ?? "")}" />`;
+    case "choice": return parseStrings(q.options).map((o, i) => `<label class="check-row"><input type="radio" name="${id}" ${name} value="${esc(o)}" ${value === o ? "checked" : ""} /> <span>${esc(o)}</span></label>`).join("");
+    case "multi": return parseStrings(q.options).map(o => `<label class="check-row"><input type="checkbox" ${name} data-multi="1" value="${esc(o)}" ${Array.isArray(value) && value.includes(o) ? "checked" : ""} /> <span>${esc(o)}</span></label>`).join("");
+    case "yesno": return ["yes", "no"].map(o => `<label class="check-row"><input type="radio" name="${id}" ${name} value="${o}" ${value === o ? "checked" : ""} /> <span>${o === "yes" ? "Yes" : "No"}</span></label>`).join("");
+    case "read": {
+      const link = safeLink(q.link_url) ? `<p><a class="link-chip" href="${esc(safeLink(q.link_url))}" target="_blank" rel="noopener">${glyph("link")} ${esc(q.link_url)}</a></p>` : "";
+      return `${docLink(q)}${q.body ? `<div class="q-body">${esc(q.body)}</div>` : ""}${link}<label class="check-row"><input type="checkbox" ${name} data-read="1" ${value ? "checked" : ""} /> <span>I have read this</span></label>`;
+    }
+    default: return "";
+  }
+}
+
+function renderFill(form, questions, sub) {
+  const answers = fillState.answers;
+  const signs = Number(form.requires_signature) === 1;
+  return `
+    <form id="fill-form" data-testid="fill-form" data-form-id="${esc(form.id)}" onsubmit="return false">
+      ${questions.map(q => `
+        <div class="question" data-testid="question" data-question-id="${esc(q.id)}">
+          <div class="q-label">${esc(q.label)}${Number(q.required) ? `<span class="q-req" title="Required">*</span>` : ""}</div>
+          ${q.help ? `<div class="q-help">${esc(q.help)}</div>` : ""}
+          <div class="form-group" style="margin:6px 0 0">${renderQuestionInput(q, answers[q.id])}</div>
+        </div>`).join("")}
+      ${signs ? `
+        <div class="signature-box" data-testid="signature-box">
+          <div class="q-label">${glyph("signature")} Signature</div>
+          <div class="statement">${esc(form.signature_text)}</div>
+          <div class="form-group"><label for="sig-name">Type your full name</label><input type="text" id="sig-name" data-testid="sig-name" maxlength="200" autocomplete="name" value="${esc(fillState.signature.name ?? "")}" /></div>
+          <label class="check-row"><input type="checkbox" id="sig-agree" data-testid="sig-agree" ${fillState.signature.agreed ? "checked" : ""} /> <span>I agree to the statement above. My name, the time, and the exact wording are kept with my answers.</span></label>
+        </div>` : ""}
+      <div id="fill-error" class="inline-error" data-testid="fill-error">${esc(fillState.error)}</div>
+      <div class="actions-row">
+        <button class="btn btn-ghost" data-testid="save-draft" data-action="save-draft" data-id="${esc(form.id)}">Save draft</button>
+        <button class="btn btn-primary" data-testid="submit" data-action="submit" data-id="${esc(form.id)}">${signs ? "Sign and submit" : "Submit"}</button>
+        ${sub ? `<span class="form-hint" style="align-self:center">Draft saved ${formatRelativeDate(sub.updated_at)}</span>` : ""}
+      </div>
+    </form>`;
+}
+
+/** The audience as words inside a sentence: "everyone", or the label as is,
+ *  so a member's or a group's name keeps its own capitals. */
+function audiencePhrase(form) {
+  return (form?.audience_kind ?? "everyone") === "everyone" ? "everyone" : audienceLabel(form, ctx());
+}
+
+function renderManage(form, questions) {
+  const draft = form.status === "draft";
+  // An unread question list is not an empty one: adding to it would pick the
+  // wrong position and skip the question cap, so the builder waits for it.
+  const listReady = questionsByForm.has(form.id) && !questionsFailed.has(form.id);
+  const actions = [];
+  if (draft) actions.push(`<button class="btn btn-primary btn-sm" data-testid="open-form" data-action="open-form" data-id="${esc(form.id)}">Open to ${esc(audiencePhrase(form))}</button>`);
+  if (form.status === "open") actions.push(`<button class="btn btn-ghost btn-sm" data-testid="close-form" data-action="close-form" data-id="${esc(form.id)}">Close</button>`);
+  if (form.status === "closed") actions.push(`<button class="btn btn-ghost btn-sm" data-testid="reopen-form" data-action="reopen-form" data-id="${esc(form.id)}">Reopen</button>`);
+  if (form.status === "open" || form.status === "closed") actions.push(`<button class="btn btn-ghost btn-sm" data-testid="archive-form" data-action="archive-form" data-id="${esc(form.id)}">Archive</button>`);
+  if (form.status === "open" && share.enabled && isAdult(ME)) actions.push(`<button class="btn btn-ghost btn-sm" data-testid="share-form" data-action="share" data-id="${esc(form.id)}">${glyph("link")} Intake link</button>`);
+  actions.push(`<button class="btn btn-ghost btn-sm" data-testid="edit-form" data-action="edit-form" data-id="${esc(form.id)}">${glyph("pencil")} Settings</button>`);
+  if (draft) actions.push(`<button class="btn btn-danger btn-sm" data-testid="delete-form" data-action="delete-form" data-id="${esc(form.id)}">Delete draft</button>`);
+
+  const qList = questions.map((q, i) => `
+    <div class="question" data-testid="builder-question" data-question-id="${esc(q.id)}">
+      <div class="q-row">
+        <div class="grow">
+          <div class="q-label">${i + 1}. ${esc(q.label)}${Number(q.required) ? `<span class="q-req">*</span>` : ""}</div>
+          <div class="q-type">${esc(QUESTION_TYPES[q.type] ?? q.type)}${q.help ? ` · ${esc(q.help)}` : ""}${q.type === "read" && isFileId(q.file_id) ? ` · ${glyph("document")} ${esc(q.file_name || "Document")}` : ""}</div>
+        </div>
+        ${draft ? `
+          <button class="btn btn-ghost btn-xs" data-action="move-q" data-id="${esc(q.id)}" data-dir="-1" aria-label="Move up" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button class="btn btn-ghost btn-xs" data-action="move-q" data-id="${esc(q.id)}" data-dir="1" aria-label="Move down" ${i === questions.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="btn btn-ghost btn-xs" data-testid="edit-question" data-action="edit-q" data-id="${esc(q.id)}">Edit</button>
+          <button class="btn btn-ghost btn-xs" data-testid="delete-question" data-action="delete-q" data-id="${esc(q.id)}">Remove</button>` : ""}
+      </div>
+    </div>`).join("");
+
+  return `
+    <div class="section" data-testid="manage">
+      <h3>${glyph("gear")} Manage <span class="spacer"></span></h3>
+      <div class="actions-row" style="margin-top:0">${actions.join("")}</div>
+      ${draft ? `<p class="form-hint" style="margin-top:8px">Questions can be changed until the form is opened. Opening fixes the wording every signature is given against.</p>` : `<p class="form-hint" style="margin-top:8px">Questions are fixed: this form has been opened. To change them, archive it and start a new form.</p>`}
+      <div style="margin-top:12px" data-testid="builder">${
+        questionsFailed.has(form.id)
+          ? `<div class="load-error" role="alert"><span>Couldn’t load the questions.</span> <button type="button" class="load-error-retry" data-action="retry-questions" data-id="${esc(form.id)}">Try again</button></div>`
+          : !listReady ? `<p class="form-hint">Loading the questions…</p>`
+          : (qList || `<p class="form-hint">No questions yet.</p>`)
+      }</div>
+      ${draft && listReady && questions.length < MAX_QUESTIONS ? `<div class="actions-row"><button class="btn btn-ghost btn-sm" data-testid="add-question" data-action="add-q" data-id="${esc(form.id)}">${glyph("plus")} Add a question or document</button></div>` : ""}
+    </div>`;
+}
+
+function renderReview(form) {
+  const subs = submissionsByForm.get(form.id);
+  if (!subs) return `<div class="section" data-testid="review"><h3>${glyph("people")} Submissions</h3><p class="form-hint">Loading…</p></div>`;
+  const { rows, extra, done, total, outstanding } = completion(form, subs, ctx());
+  const questions = questionsByForm.get(form.id);
+  const line = (r) => {
+    const s = r.submission;
+    const state = r.state === "submitted" ? `<span class="status-badge status-done">Submitted</span>` : `<span class="status-badge status-todo">Not submitted</span>`;
+    const when = s?.submitted_at ? formatWhen(s.submitted_at) : "";
+    const terms = s?.status === "submitted" && questions && !submissionIntact(questions, s) ? ` <span class="status-badge status-sign" title="The questions changed after this was signed, or the copy was altered">Terms differ</span>` : "";
+    // The page refuses a submit to a closed form; a copy that still arrived
+    // after the close (by hand-written SQL, or a race with the close) says so.
+    const late = submittedWhileClosed(form, s)
+      ? ` <span class="status-badge status-todo" data-testid="late-copy" title="Submitted after the form was closed">After close</span>` : "";
+    return `<tr data-testid="completion-row" data-member-id="${esc(r.member_id)}" data-state="${esc(r.state)}"><td>${esc(memberName(r.member_id))}</td><td>${state}${terms}${late}</td><td>${esc(when)}</td><td>${s?.status === "submitted" ? `<button class="btn btn-ghost btn-xs" data-testid="view-submission" data-action="view-sub" data-id="${esc(s.id)}">View</button>` : ""}</td></tr>`;
+  };
+  return `
+    <div class="section" data-testid="review">
+      <h3>${glyph("people")} Submissions <span class="form-hint" data-testid="completion-count">${done} of ${total}</span><span class="spacer"></span>
+        ${form.status === "open" && outstanding.length && isAdult(ME) ? `<button class="btn btn-ghost btn-xs" data-testid="remind" data-action="remind" data-id="${esc(form.id)}">Remind ${outstanding.length}</button>` : ""}
+      </h3>
+      <table class="completion"><thead><tr><th>Member</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+        <tbody>${rows.map(line).join("")}${extra.map(line).join("")}</tbody></table>
+      ${total === 0 ? `<p class="form-hint" style="margin-top:6px">Nobody is in this form’s audience.</p>` : ""}
+    </div>`;
+}
+
+function renderIntake(form) {
+  const rows = intakeByForm.get(form.id);
+  if (!rows || rows.length === 0) return "";
+  return `
+    <div class="section" data-testid="intake">
+      <h3>${glyph("envelope")} Sent through the intake link <span class="form-hint" data-testid="intake-count">${intakeCursor.get(form.id) ? `${rows.length} newest shown` : rows.length}</span></h3>
+      ${rows.map(r => `
+        <div class="question" data-testid="intake-row" data-intake-id="${esc(r.id)}">
+          <div class="q-row"><div class="grow">
+            <div class="q-label">${esc(r.guest_name)}</div>
+            <div class="q-type">${esc([r.guest_email, r.guest_phone].filter(Boolean).join(" · "))} · ${formatRelativeDate(r.created_at)}</div>
+            ${r.guest_note ? `<div class="answer" style="margin-top:4px">${esc(r.guest_note)}</div>` : ""}
+          </div><button class="btn btn-ghost btn-xs" data-testid="delete-intake" data-action="delete-intake" data-id="${esc(r.id)}">Remove</button></div>
+        </div>`).join("")}
+      ${intakeCursor.get(form.id) ? `<div class="actions-row"><button class="btn btn-ghost btn-sm" data-testid="intake-more" data-action="intake-more" data-id="${esc(form.id)}" ${loadingMore.has(`intake:${form.id}`) ? "disabled" : ""}>Show older</button></div>` : ""}
+    </div>`;
+}
+
+// ── Modals ───────────────────────────────────────────────────────────────────
+
+function openModal(html, testid) {
+  closeModal();
+  modalEl = document.createElement("div");
+  modalEl.className = "modal-backdrop";
+  modalEl.innerHTML = `<div class="modal"${testid ? ` data-testid="${testid}"` : ""}>${html}</div>`;
+  modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
+  setTimeout(() => modalEl?.querySelector("[data-autofocus]")?.focus(), 50);
+}
+// `only`: close the dialog only if it is still this one. A save that finishes
+// after its dialog was closed and another opened must not close the newer one,
+// which would discard its edits and delete its upload.
+function closeModal(only) {
+  if (only !== undefined && modalEl !== only) return;
+  // A question dialog mid-save stays: closing it would delete the upload the
+  // save is about to name.
+  if (modalEl?.dataset.saving) return;
+  // A document uploaded into a question dialog closed without saving is named
+  // by no row, and nothing else would ever delete it, so it goes now.
+  const stray = modalEl?.dataset.uploadedFileId;
+  if (stray && isFileId(stray)) files.delete(stray).catch(() => {});
+  modalEl?.remove();
+  modalEl = null;
+}
+const modalHeader = (title) => `<div class="modal-header"><h2>${title}</h2><button class="modal-close" aria-label="Close" data-action="close-modal">${glyph("close", { accent: "currentColor" })}</button></div>`;
+
+function openFormModal(form) {
+  const f = form ?? { title: "", description: "", audience_kind: "everyone", audience_group_id: "", audience_member_ids: "[]", requires_signature: 0, signature_text: "", due_date: "" };
+  const chosen = new Set(parseStrings(f.audience_member_ids));
+  const locked = form && form.status !== "draft";
+  const roster = (appMembers ?? members);
+  openModal(`
+    ${modalHeader(form ? "Form settings" : "New form")}
+    <div class="modal-body">
+      <div class="form-group"><label for="f-title">Title</label><input id="f-title" data-testid="field-title" type="text" maxlength="120" value="${esc(f.title)}" data-autofocus /></div>
+      <div class="form-group"><label for="f-desc">Description</label><textarea id="f-desc" data-testid="field-description" rows="3" maxlength="2000">${esc(f.description)}</textarea></div>
+      <div class="form-group"><label for="f-audience">Who is this for?</label>
+        <select id="f-audience" data-testid="field-audience">
+          <option value="everyone" ${f.audience_kind === "everyone" ? "selected" : ""}>Everyone</option>
+          <option value="group" ${f.audience_kind === "group" ? "selected" : ""}>A group</option>
+          <option value="members" ${f.audience_kind === "members" ? "selected" : ""}>Chosen members</option>
+        </select>
+      </div>
+      <div class="form-group" id="f-group-row" style="${f.audience_kind === "group" ? "" : "display:none"}"><label for="f-group">Group</label>
+        <select id="f-group" data-testid="field-group"><option value="">— choose —</option>${groups.map(g => `<option value="${esc(g.id)}" ${f.audience_group_id === g.id ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
+        <p class="form-hint">Groups are managed in hub settings.</p>
+      </div>
+      <div class="form-group" id="f-members-row" style="${f.audience_kind === "members" ? "" : "display:none"}"><label>Members</label>
+        ${roster.map(m => `<label class="check-row"><input type="checkbox" data-member="${esc(m.id)}" ${chosen.has(m.id) ? "checked" : ""} /> <span>${esc(m.name)}</span></label>`).join("")}
+      </div>
+      <div class="form-group"><label for="f-due">Due date (optional)</label><input id="f-due" data-testid="field-due" type="date" value="${esc(f.due_date ?? "")}" /></div>
+      <div class="form-group">
+        <div class="toggle-row"><input id="f-sign" data-testid="field-signature" type="checkbox" ${Number(f.requires_signature) ? "checked" : ""} ${locked ? "disabled" : ""} /><label for="f-sign">Ask for a signature</label></div>
+        <p class="form-hint">${locked ? "Fixed once the form is open." : "The member types their name and agrees to a statement. The time and the exact wording are kept with their answers."}</p>
+      </div>
+      <div class="form-group" id="f-sig-row" style="${Number(f.requires_signature) ? "" : "display:none"}"><label for="f-sig-text">Statement they sign</label>
+        <textarea id="f-sig-text" data-testid="field-signature-text" rows="3" maxlength="2000" ${locked ? "disabled" : ""}>${esc(f.signature_text)}</textarea></div>
+      <div id="modal-error" class="inline-error" data-testid="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      <button class="btn btn-primary" data-testid="form-save" data-action="save-form" data-id="${esc(form?.id ?? "")}">${form ? "Save" : "Create draft"}</button>
+    </div>`, "form-modal");
+  modalEl.querySelector("#f-audience").addEventListener("change", (e) => {
+    modalEl.querySelector("#f-group-row").style.display = e.target.value === "group" ? "" : "none";
+    modalEl.querySelector("#f-members-row").style.display = e.target.value === "members" ? "" : "none";
+  });
+  modalEl.querySelector("#f-sign").addEventListener("change", (e) => { modalEl.querySelector("#f-sig-row").style.display = e.target.checked ? "" : "none"; });
+}
+
+function readFormModal() {
+  const host = modalEl;
+  const form = formById(forms, host?.querySelector("[data-action=save-form]")?.dataset.id ?? "");
+  return formDraft({
+    title: host.querySelector("#f-title")?.value,
+    description: host.querySelector("#f-desc")?.value,
+    audience_kind: host.querySelector("#f-audience")?.value,
+    audience_group_id: host.querySelector("#f-group")?.value,
+    audience_member_ids: [...host.querySelectorAll("[data-member]:checked")].map(el => el.dataset.member),
+    requires_signature: form && form.status !== "draft" ? form.requires_signature : (host.querySelector("#f-sign")?.checked ? 1 : 0),
+    signature_text: form && form.status !== "draft" ? form.signature_text : host.querySelector("#f-sig-text")?.value,
+    due_date: host.querySelector("#f-due")?.value,
+  });
+}
+
+async function saveForm(existingId) {
+  const host = modalEl;
+  const draft = readFormModal();
+  const errEl = host?.querySelector("#modal-error");
+  if (draft.error) { if (errEl) errEl.textContent = draft.error; return; }
+  const btn = host?.querySelector("[data-action=save-form]");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  const v = draft.value;
+  const now = new Date().toISOString();
+  try {
+    if (existingId) {
+      // The signature switch and statement change only while the form is a
+      // draft, decided by the row's stored status in the statement itself: a
+      // tab that still believes an opened form is a draft cannot rewrite what
+      // members are signing.
+      const { changed } = await db(
+        `UPDATE app_forms__forms SET title = ?, description = ?, audience_kind = ?, audience_group_id = ?, audience_member_ids = ?, `
+        + `requires_signature = CASE WHEN status = 'draft' THEN ? ELSE requires_signature END, `
+        + `signature_text = CASE WHEN status = 'draft' THEN ? ELSE signature_text END, due_date = ?, updated_at = ? WHERE id = ?`,
+        [v.title, v.description, v.audience_kind, v.audience_group_id, v.audience_member_ids, v.requires_signature, v.signature_text, v.due_date, now, existingId],
+      );
+      if (DB && Number(changed ?? 0) === 0) {
+        const still = (await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [existingId])).rows?.length > 0;
+        throw userError(failureLine(null, { action: "save the form", thing: "form", found: still }));
+      }
+      const idx = forms.findIndex(f => f.id === existingId);
+      let stored = null;
+      if (DB) stored = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [existingId]).catch(() => ({ rows: [] }))).rows?.[0] ?? null;
+      if (idx !== -1) forms[idx] = stored ?? { ...forms[idx], ...v, updated_at: now };
+      // The statement only changes while the form is a draft (the CASE above).
+      // A tab that still showed it as one is told, rather than shown a save
+      // that quietly kept the old wording.
+      if (stored && stored.status !== "draft"
+        && (String(stored.signature_text ?? "") !== String(v.signature_text ?? "") || Number(stored.requires_signature) !== Number(v.requires_signature))) {
+        toast("Saved. The form is already open, so its signature and statement were not changed.");
+      }
+    } else {
+      const id = host ? (host.dataset.rowId ||= crypto.randomUUID()) : crypto.randomUUID();
+      try {
+        await db(
+          `INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+          [id, v.title, v.description, v.audience_kind, v.audience_group_id, v.audience_member_ids, v.requires_signature, v.signature_text, v.due_date, ME?.id ?? "demo", now, now],
+        );
+      } catch (e) {
+        if (!outcomeUnknown(e)) throw e;
+        const stored = (await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0];
+        if (!stored) throw e;
+      }
+      forms = [{ id, ...v, status: "draft", closes_at: null, created_by: ME?.id ?? "demo", created_at: now, updated_at: now, opened_at: null, closed_at: null }, ...forms];
+      if (host) delete host.dataset.rowId;
+      closeModal(host);
+      currentTab = "drafts";
+      await openForm(id);
+      return;
+    }
+    closeModal(host);
+    render();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = existingId ? "Save" : "Create draft"; }
+    console.error(e);
+    if (errEl) errEl.textContent = failureLine(e, { action: "save the form", thing: "form" });
+  }
+}
+
+function openQuestionModal(formId, existing) {
+  const q = existing ?? { type: "text", label: "", help: "", required: 1, options: "[]", body: "", link_url: "", file_id: null, file_name: "" };
+  openModal(`
+    ${modalHeader(existing ? "Edit question" : "Add a question")}
+    <div class="modal-body">
+      <div class="form-group"><label for="q-type">Type</label>
+        <select id="q-type" data-testid="field-qtype">${Object.entries(QUESTION_TYPES).map(([k, label]) => `<option value="${k}" ${q.type === k ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="form-group"><label for="q-label">Question or heading</label><input id="q-label" data-testid="field-qlabel" type="text" maxlength="200" value="${esc(q.label)}" data-autofocus /></div>
+      <div class="form-group"><label for="q-help">Help text (optional)</label><input id="q-help" type="text" maxlength="500" value="${esc(q.help)}" /></div>
+      <div class="form-group" id="q-options-row"><label for="q-options">Options, one per line</label><textarea id="q-options" data-testid="field-qoptions" rows="4">${esc(parseStrings(q.options).join("\n"))}</textarea></div>
+      <div id="q-read-rows">
+        <div class="form-group"><label for="q-file">Document (PDF, Word, image or text)</label>
+          <div id="q-doc">${docChip(q.file_id, q.file_name)}</div>
+          ${FILES_URL ? `<input id="q-file" data-testid="field-qfile" type="file" accept="${DOC_TYPES.join(",")}" />` : `<p class="form-hint">Uploads are not available here.</p>`}
+        </div>
+        <div class="form-group"><label for="q-body">Text to read (optional)</label><textarea id="q-body" data-testid="field-qbody" rows="6" maxlength="8000">${esc(q.body)}</textarea></div>
+        <div class="form-group"><label for="q-link">Link (optional, https)</label><input id="q-link" type="url" maxlength="500" value="${esc(q.link_url)}" /></div>
+      </div>
+      <label class="check-row"><input type="checkbox" id="q-required" data-testid="field-qrequired" ${Number(q.required) ? "checked" : ""} /> <span>Required</span></label>
+      <div id="modal-error" class="inline-error" data-testid="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      <button class="btn btn-primary" data-testid="question-save" data-action="save-q" data-id="${esc(existing?.id ?? "")}" data-form="${esc(formId)}">${existing ? "Save" : "Add"}</button>
+    </div>`, "question-modal");
+  const sync = () => {
+    const t = modalEl.querySelector("#q-type").value;
+    modalEl.querySelector("#q-options-row").style.display = t === "choice" || t === "multi" ? "" : "none";
+    modalEl.querySelector("#q-read-rows").style.display = t === "read" ? "" : "none";
+  };
+  modalEl.querySelector("#q-type").addEventListener("change", sync);
+  sync();
+  modalEl.dataset.fileId = isFileId(q.file_id) ? q.file_id : "";
+  // What the stored row named when this dialog opened, exactly: an edit saves
+  // only if no one has changed the document since.
+  modalEl.dataset.openedFileId = q.file_id ?? "";
+  modalEl.dataset.fileName = isFileId(q.file_id) ? (q.file_name ?? "") : "";
+  modalEl.querySelector("#q-file")?.addEventListener("change", (e) => uploadDocument(e.target));
+}
+
+function docChip(fileId, fileName) {
+  if (!isFileId(fileId)) return "";
+  return `<span class="link-chip" data-testid="question-document">${glyph("document")} <a href="${esc(files.url(fileId))}" target="_blank" rel="noopener">${esc(fileName || "Document")}</a> <button type="button" class="btn btn-xs btn-ghost" data-action="q-remove-doc" aria-label="Remove the document">×</button></span>`;
+}
+
+// The document is uploaded at once and named by the question when it saves.
+// One uploaded in this dialog that the saved question does not name (replaced,
+// removed, left unsaved, or the step saved as another type) is deleted here:
+// the hub reclaims a file only when a row that named it changes, so nothing
+// else ever would. One a saved question already named is reclaimed by the hub
+// when that question stops naming it.
+async function uploadDocument(input) {
+  const host = modalEl;
+  const file = input.files?.[0];
+  if (!host || !file) return;
+  const errEl = host.querySelector("#modal-error");
+  input.disabled = true;
+  host.dataset.uploading = "1";
+  try {
+    const reply = await files.upload(file);
+    if (modalEl !== host) { files.delete(reply.id).catch(() => {}); return; }
+    dropDialogUpload(host);
+    Object.assign(host.dataset, { fileId: reply.id, fileName: String(reply.name || file.name).slice(0, 200), uploadedFileId: reply.id });
+    host.querySelector("#q-doc").innerHTML = docChip(host.dataset.fileId, host.dataset.fileName);
+    if (errEl) errEl.textContent = "";
+  } catch (e) {
+    console.error(e);
+    if (errEl && modalEl === host) errEl.textContent = uploadFailureLine(e);
+  } finally {
+    delete host.dataset.uploading;
+    input.disabled = false;
+    input.value = "";
+  }
+}
+
+function dropDialogUpload(host) {
+  const up = host.dataset.uploadedFileId;
+  if (up && isFileId(up)) files.delete(up).catch(() => {});
+  host.dataset.uploadedFileId = "";
+}
+
+/** After any failed save, the stored row is the truth. It decides three things:
+ *  whether the dialog's upload is named (and so must outlive the dialog),
+ *  whether this dialog's own write landed (so the next Save is not refused as
+ *  someone else's change), and what the page shows for the question. Nothing
+ *  reclaims a file no row ever named, so an upload the row does not name stays
+ *  marked and closing deletes it. The read is the best evidence the page has,
+ *  not proof: a write still in flight at the hub can land after it. A failed
+ *  read keeps the file, since a stray file is cheaper than a question pointing
+ *  at a deleted one. */
+async function settleFailedSave(host, existingId, formId, v) {
+  const rowId = existingId || host.dataset.rowId;
+  if (!DB || !rowId) return;
+  let row;
+  try { row = (await db(`SELECT * FROM app_forms__questions WHERE id = ?`, [rowId])).rows?.[0] ?? null; }
+  catch (e) { console.error(e); host.dataset.uploadedFileId = ""; return; }
+  if (!row) return;
+  if (row.file_id === host.dataset.uploadedFileId) host.dataset.uploadedFileId = "";
+  if (!existingId) {
+    // An add that landed: from here the dialog edits that row, so the next
+    // Save takes the guarded edit path, never a second insert or the cap.
+    // Guarded on what the dialog shows: a row naming another document (one
+    // another builder saved since) refuses, so a reclaimed file is never
+    // written back.
+    const btn = host.querySelector("[data-action=save-q]");
+    if (btn) btn.dataset.id = row.id;
+    const title = host.querySelector(".modal-header h2");
+    if (title) title.textContent = "Edit question";
+    delete host.dataset.rowId;
+    host.dataset.openedFileId = v.file_id ?? "";
+  } else if ((row.file_id ?? null) === (v.file_id ?? null)) {
+    // The row names what this dialog saved: the write was ours, so the guard
+    // moves to it. A row naming anything else keeps refusing, so a stale
+    // dialog can never write back a document the hub has reclaimed.
+    host.dataset.openedFileId = row.file_id ?? "";
+  }
+  const list = questionsByForm.get(formId) ?? [];
+  questionsByForm.set(formId, list.some(q => q.id === row.id) ? list.map(q => q.id === row.id ? row : q) : [...list, row]);
+  render();
+}
+
+/** The line for a question write refused because its form is no longer a draft. */
+async function frozenLine(formId) {
+  const status = (await db(`SELECT status FROM app_forms__forms WHERE id = ?`, [formId]).catch(() => null))?.rows?.[0]?.status;
+  return status && status !== "draft" ? "This form has been opened, so its questions can no longer change." : null;
+}
+
+const questionValues = (v) => [v.type, v.label, v.help, v.required, v.options, v.body, v.link_url, v.file_id, v.file_name];
+
+async function saveQuestion(existingId, formId) {
+  const host = modalEl;
+  const errEl = host?.querySelector("#modal-error");
+  const draft = questionDraft({
+    type: host.querySelector("#q-type")?.value,
+    label: host.querySelector("#q-label")?.value,
+    help: host.querySelector("#q-help")?.value,
+    required: host.querySelector("#q-required")?.checked ? 1 : 0,
+    options: host.querySelector("#q-options")?.value,
+    body: host.querySelector("#q-body")?.value,
+    link_url: host.querySelector("#q-link")?.value,
+    file_id: host.dataset.fileId,
+    file_name: host.dataset.fileName,
+  });
+  if (host.dataset.uploading) { if (errEl) errEl.textContent = "Wait for the document to finish uploading."; return; }
+  if (host.dataset.saving) return;
+  if (draft.error) { if (errEl) errEl.textContent = draft.error; return; }
+  if (!questionsByForm.has(formId) || questionsFailed.has(formId)) { if (errEl) errEl.textContent = "Couldn’t load the questions. Close this and try again."; return; }
+  const btn = host.querySelector("[data-action=save-q]");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  host.dataset.saving = "1";
+  const fileInput = host.querySelector("#q-file");
+  if (fileInput) fileInput.disabled = true;
+  const v = draft.value;
+  const list = questionsByForm.get(formId);
+  try {
+    if (existingId) {
+      // Guarded on the document the dialog opened with: a stale dialog would
+      // otherwise write back a file another builder replaced, which the hub
+      // has already deleted.
+      const { changed } = await db(
+        `UPDATE app_forms__questions SET type = ?, label = ?, help = ?, required = ?, options = ?, body = ?, link_url = ?, file_id = ?, file_name = ? WHERE id = ? AND file_id IS ?`,
+        [...questionValues(v), existingId, host.dataset.openedFileId || null],
+      );
+      if (DB && Number(changed ?? 0) === 0) {
+        const now = (await db(`SELECT file_id FROM app_forms__questions WHERE id = ?`, [existingId]).catch(() => null))?.rows;
+        const row = now?.[0];
+        // Its document changed since this dialog opened: someone else saved.
+        // Otherwise the form opened and froze its questions, or the write was refused.
+        const guarded = !!row && (row.file_id ?? "") !== host.dataset.openedFileId;
+        if (row && !guarded) { const frozen = await frozenLine(formId); if (frozen) throw userError(frozen); }
+        throw userError(failureLine(null, { action: "save the question", thing: "question", found: now ? !!row : null, guarded }));
+      }
+      questionsByForm.set(formId, list.map(q => q.id === existingId ? { ...q, ...v } : q));
+    } else {
+      if (list.length >= MAX_QUESTIONS) throw userError(`A form can have at most ${MAX_QUESTIONS} questions.`);
+      const id = host ? (host.dataset.rowId ||= crypto.randomUUID()) : crypto.randomUUID();
+      const position = list.reduce((max, q) => Math.max(max, Number(q.position) || 0), -1) + 1;
+      try {
+        await db(
+          `INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url, file_id, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, formId, position, ...questionValues(v)],
+        );
+      } catch (e) {
+        if (!outcomeUnknown(e)) {
+          if (e?.status === 403) { const frozen = await frozenLine(formId); if (frozen) throw userError(frozen); }
+          throw e;
+        }
+        const stored = (await db(`SELECT id FROM app_forms__questions WHERE id = ?`, [id])).rows?.[0];
+        if (!stored) {
+          // Another builder took this position a moment ago: show their
+          // question, and the next Add takes the place after it.
+          if (/UNIQUE constraint failed/i.test(String(e?.message ?? "")) || e?.code === "UNIQUE_CONSTRAINT") {
+            await loadQuestions(formId).then(() => render()).catch(err => console.error(err));
+            throw userError("Another question was added at the same time. Press Add again.");
+          }
+          throw e;
+        }
+        // An earlier try of this add landed. The dialog may have changed
+        // since, so the row takes what it shows now; the hub reclaims a
+        // document the earlier try named and this one does not.
+        const { changed } = await db(
+          `UPDATE app_forms__questions SET type = ?, label = ?, help = ?, required = ?, options = ?, body = ?, link_url = ?, file_id = ?, file_name = ? WHERE id = ?`,
+          [...questionValues(v), id],
+        );
+        if (DB && Number(changed ?? 0) === 0) throw userError((await frozenLine(formId)) ?? failureLine(null, { action: "save the question", thing: "question", found: true }));
+      }
+      const saved = { id, form_id: formId, position, ...v };
+      questionsByForm.set(formId, list.some(q => q.id === id) ? list.map(q => q.id === id ? { ...q, ...v } : q) : [...list, saved]);
+      if (host) delete host.dataset.rowId;
+    }
+    // Saved. An upload the row names must outlive the dialog; one it does not
+    // (the step was saved as another type) is named by nothing, so it goes.
+    if (v.file_id && v.file_id === host.dataset.uploadedFileId) host.dataset.uploadedFileId = "";
+    else dropDialogUpload(host);
+    delete host.dataset.saving;
+    closeModal(host);
+    render();
+  } catch (e) {
+    console.error(e);
+    try {
+      await settleFailedSave(host, existingId, formId, v);
+    } catch (settleErr) {
+      console.error(settleErr);
+    } finally {
+      // Released whatever happened above: a lock left set would leave every
+      // control on the page dead until a reload.
+      delete host.dataset.saving;
+      if (fileInput) fileInput.disabled = false;
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset.id ? "Save" : "Add"; }
+    }
+    if (errEl) errEl.textContent = failureLine(e, { action: "save the question", thing: "question" });
+  }
+}
+
+async function moveQuestion(id, dir) {
+  const form = formById(forms, view.id);
+  if (!form) return;
+  const list = [...(questionsByForm.get(form.id) ?? [])];
+  const i = list.findIndex(q => q.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const a = list[i], b = list[j];
+  try {
+    // All or nothing, and only from the positions this tab saw. Each step is
+    // guarded on the stored position, so a stale tab (another builder moved a
+    // question) or a frozen form (opened in another tab) changes nothing, and
+    // requireChanges rolls the whole swap back with a 409. Positions are
+    // UNIQUE per form, so the swap goes through a free one: a random negative
+    // place, never a question's, and not one another builder's swap at the
+    // same moment would pick too.
+    const parked = -1 - Math.floor(Math.random() * 1e9);
+    const move = `UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?`;
+    await dbBatch([
+      { sql: move, params: [parked, a.id, a.position], requireChanges: true },
+      { sql: move, params: [a.position, b.id, b.position], requireChanges: true },
+      { sql: move, params: [b.position, a.id, parked], requireChanges: true },
+    ]);
+    const pa = a.position;
+    a.position = b.position; b.position = pa;
+    list.sort((x, y) => (x.position - y.position) || String(x.id).localeCompare(String(y.id)));
+    questionsByForm.set(form.id, list);
+    render();
+  } catch (e) {
+    console.error(e);
+    // Whatever happened, the stored order is the truth: show it.
+    await loadQuestions(form.id).then(() => render()).catch(err => console.error(err));
+    // A position taken under this tab is someone else's reorder, not a
+    // duplicate question.
+    const conflict = e?.status === 409 || e?.code === "UNIQUE_CONSTRAINT" || /UNIQUE constraint failed/i.test(String(e?.message ?? ""));
+    const frozen = conflict ? await frozenLine(form.id) : null;
+    hubAlert(frozen ?? failureLine(conflict ? null : e, { action: "reorder the questions", thing: "question", found: conflict ? true : undefined, guarded: conflict }));
+  }
+}
+
+async function deleteQuestion(id) {
+  const form = formById(forms, view.id);
+  if (!form) return;
+  const ok = await hubConfirm({ message: "Remove this question?", confirmLabel: "Remove", destructive: true });
+  if (!ok) return;
+  try {
+    const { changed } = await db(`DELETE FROM app_forms__questions WHERE id = ?`, [id]);
+    if (DB && Number(changed ?? 0) === 0) throw userError(failureLine(null, { action: "remove the question", thing: "question", found: true }));
+    questionsByForm.set(form.id, (questionsByForm.get(form.id) ?? []).filter(q => q.id !== id));
+    render();
+  } catch (e) { console.error(e); hubAlert(failureLine(e, { action: "remove the question", thing: "question" })); }
+}
+
+// ── Form lifecycle ───────────────────────────────────────────────────────────
+
+async function openFormToAudience(id) {
+  const form = formById(forms, id);
+  if (!form || form.status !== "draft") return;
+  let questions;
+  try {
+    questions = await loadQuestions(id);
+    questionsFailed.delete(id);
+  } catch (e) {
+    console.error(e);
+    questionsFailed.add(id);
+    render();
+    hubAlert("Couldn’t load the questions. Try again.");
+    return;
+  }
+  if (questions.length === 0) { hubAlert("Add at least one question before opening the form."); return; }
+  const ids = audienceIds(form, ctx());
+  const ok = await hubConfirm({
+    message: `Open this form to ${audiencePhrase(form)}?`,
+    description: `${ids.length === 0 ? "Nobody is in its audience, so nobody will be told." : `${ids.length} ${ids.length === 1 ? "person" : "people"} will be told.`} The questions${Number(form.requires_signature) ? " and the signature statement" : ""} can no longer be changed.`,
+    confirmLabel: "Open form",
+  });
+  if (!ok) return;
+  const now = new Date().toISOString();
+  // The stored row once the open is settled: the hub stamps the end of any
+  // closed spell (END_CLOSED_SPELL), so its values are the ones held here.
+  let stored = null;
+  try {
+    const { changed } = await db(OPEN_FORM_SQL, [now, now, id]);
+    if (DB && Number(changed ?? 0) === 0) {
+      // Already open: this tab's earlier try landed with its answer lost, or
+      // another builder opened it a moment ago. Either way it is open, and the
+      // rest runs; the notification below is keyed per form, so the audience
+      // is told once whoever gets here.
+      stored = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0] ?? null;
+      if (stored) Object.assign(form, stored);
+      if (stored?.status !== "open") throw userError(failureLine(null, { action: "open the form", thing: "form", found: !!stored, guarded: true }));
+    }
+  } catch (e) {
+    console.error(e);
+    // The form row may have been re-read into a state the page no longer shows.
+    render();
+    hubAlert(failureLine(e, { action: "open the form", thing: "form" }));
+    return;
+  }
+  // Opened. From here nothing may report the open as failed. Without the
+  // stored row, the page's copy of the statement stands until the read-back
+  // below lands, or until the next load if it fails.
+  if (!stored) {
+    Object.assign(form, { status: "open", opened_at: now, closes_at: null, closed_at: null, closed_windows: endClosedSpell(form, now), updated_at: now });
+    if (DB) {
+      const again = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [id]).catch(err => { console.error(err); return null; }))?.rows?.[0];
+      if (again) Object.assign(form, again);
+    }
+  }
+  render();
+  // One line at the end says everything that went wrong after the open, so a
+  // later message never hides an earlier one.
+  const problems = [];
+  // Side effects, together and after the UI moved: a slow send never delays
+  // the activity line, and a failed one never loses it.
+  const audience = notifyAudience(form, ctx());
+  const url = hubAppUrl(APP_ID, { formId: id });
+  const results = await Promise.allSettled([
+    audience === null ? Promise.resolve("nobody") : sendHubNotification({
+      title: `New form: ${form.title}`,
+      body: form.due_date ? `Please fill it in by ${formatDay(form.due_date)}.` : "Please fill it in when you can.",
+      audience,
+      url,
+      idempotencyKey: `form-open:${id}`,
+    }),
+    logHubActivity(`${ME?.name ?? "Someone"} opened the form "${form.title}"`, { url }),
+  ]);
+  const sent = results[0];
+  if (audience === null) problems.push("nobody in its audience can be notified");
+  else if (sent.status !== "fulfilled" || !sent.value) problems.push("the notification could not be sent");
+  if (results[1].status === "rejected") console.error(results[1].reason);
+  if (problems.length) toast(`Form opened, but ${problems.join(", and ")}.`);
+}
+
+async function transitionForm(id, sql, expectFrom, patch, words) {
+  const form = formById(forms, id);
+  if (!form || form.status !== expectFrom) return;
+  const now = new Date().toISOString();
+  try {
+    const { changed } = await db(sql, [now, id]);
+    if (DB && Number(changed ?? 0) === 0) {
+      const again = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0];
+      if (again && again.status === patch.status) Object.assign(form, again);
+      else throw userError(failureLine(null, { action: words.action, thing: "form", found: !!again, guarded: true }));
+    } else {
+      Object.assign(form, patch, { updated_at: now });
+      // A close or reopen stamps its times from the hub's clock, and the
+      // review list compares them with copies stamped by the same clock: hold
+      // the stored values. If this read fails, a close shows no close time
+      // rather than this device's guess, and a reopen keeps the spell it
+      // ended (ended at this device's time) until the next load.
+      if (DB) {
+        const again = (await db(`SELECT * FROM app_forms__forms WHERE id = ?`, [id]).catch(err => { console.error(err); return null; }))?.rows?.[0];
+        if (again) Object.assign(form, again);
+      }
+    }
+    if (patch.status === "archived" && view.kind === "form") {
+      closeForm();
+      currentTab = "archived";
+      if (!archivedLoaded) loadArchived().then(render).catch(err => { console.error(err); toast("Couldn’t load archived forms."); });
+    }
+    render();
+  } catch (e) { console.error(e); hubAlert(failureLine(e, { action: words.action, thing: "form" })); }
+}
+
+async function deleteDraft(id) {
+  const form = formById(forms, id);
+  if (!form || form.status !== "draft") return;
+  const ok = await hubConfirm({ message: "Delete this draft?", description: `"${form.title}" and its questions will be removed.`, confirmLabel: "Delete", destructive: true });
+  if (!ok) return;
+  try {
+    const { changed } = await db(`DELETE FROM app_forms__forms WHERE id = ? AND status = 'draft'`, [id]);
+    if (DB && Number(changed ?? 0) === 0) {
+      const again = (await db(`SELECT id FROM app_forms__forms WHERE id = ?`, [id])).rows?.[0];
+      throw userError(failureLine(null, { action: "delete the draft", thing: "form", found: !!again, guarded: true }));
+    }
+    forms = forms.filter(f => f.id !== id);
+    questionsByForm.delete(id);
+    closeForm();
+  } catch (e) { console.error(e); hubAlert(failureLine(e, { action: "delete the draft", thing: "form" })); }
+}
+
+// ── Filling in ───────────────────────────────────────────────────────────────
+
+function collectAnswers(formId) {
+  const host = document.getElementById("fill-form");
+  // Only inputs drawn for THIS form and THIS fill state are read: right after
+  // switching forms the previous form's inputs are still on screen, and its
+  // questions are not this form's. Without them, what is held stands.
+  const questions = questionsByForm.get(formId);
+  if (!host || host.dataset.formId !== formId || fillState.formId !== formId || !questions) return fillState.answers;
+  const raw = {};
+  for (const q of questions) {
+    const els = host ? [...host.querySelectorAll(`[data-q="${CSS.escape(q.id)}"]`)] : [];
+    if (q.type === "multi") raw[q.id] = els.filter(el => el.checked).map(el => el.value);
+    else if (q.type === "choice" || q.type === "yesno") raw[q.id] = els.find(el => el.checked)?.value ?? "";
+    else if (q.type === "read") raw[q.id] = !!els[0]?.checked;
+    else raw[q.id] = els[0]?.value ?? "";
+  }
+  fillState.answers = raw;
+  const sigName = host?.querySelector("#sig-name");
+  const sigAgree = host?.querySelector("#sig-agree");
+  if (sigName) fillState.signature.name = sigName.value;
+  if (sigAgree) fillState.signature.agreed = !!sigAgree.checked;
+  return raw;
+}
+
+async function ensureDraftRow(form) {
+  let sub = mySubmission(mine, form.id, ME.id);
+  if (sub) return sub;
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  try {
+    await db(
+      `INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?)`,
+      [id, form.id, ME.id, now, now],
+    );
+  } catch (e) {
+    // A draft may already exist (another tab, a lost answer): read it back.
+    if (!outcomeUnknown(e) && e?.status !== 403) throw e;
+    sub = await loadMineFor(form.id);
+    if (!sub) throw e;
+    return sub;
+  }
+  sub = { id, form_id: form.id, member_id: ME.id, status: "draft", answers: "{}", signed_name: "", signed_at: null, terms_hash: "", submitted_at: null, created_at: now, updated_at: now };
+  mine = [sub, ...mine];
+  return sub;
+}
+
+async function saveDraft(formId) {
+  const form = formById(forms, formId);
+  if (!form || !ME?.id || fillState.formId !== formId) return;
+  const raw = collectAnswers(formId);
+  const btn = document.querySelector('[data-testid="save-draft"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  fillState.error = "";
+  try {
+    const sub = await ensureDraftRow(form);
+    const now = new Date().toISOString();
+    const { changed } = await db(`UPDATE app_forms__submissions SET answers = ?, updated_at = ? WHERE id = ? AND status = 'draft'`, [JSON.stringify(raw), now, sub.id]);
+    if (DB && Number(changed ?? 0) === 0) throw userError("This form was already submitted.");
+    Object.assign(sub, { answers: JSON.stringify(raw), updated_at: now });
+    toast("Draft saved.");
+  } catch (e) {
+    console.error(e);
+    fillState.error = failureLine(e, { action: "save the draft", thing: "draft" });
+  }
+  if (view.kind === "form" && view.id === formId) render();
+}
+
+async function submitForm(formId) {
+  const form = formById(forms, formId);
+  if (!form || !ME?.id) return;
+  if (!questionsByForm.has(formId) || questionsFailed.has(formId)) { fillState.error = "Couldn’t load this form’s questions. Try again."; render(); return; }
+  const questions = questionsByForm.get(formId);
+  if (questions.length === 0) { fillState.error = "This form has no questions to answer."; render(); return; }
+  const raw = collectAnswers(formId);
+  const checked = cleanAnswers(questions, raw);
+  if (checked.error) { fillState.error = checked.error; render(); return; }
+  const sig = cleanSignature(form, fillState.signature);
+  if (sig.error) { fillState.error = sig.error; render(); return; }
+  const signs = Number(form.requires_signature) === 1;
+  const ok = await hubConfirm({
+    message: signs ? "Sign and submit?" : "Submit your answers?",
+    description: signs ? `Your name, the time and the statement’s wording are kept with your answers. ${form.title} cannot be changed afterwards.` : "Your answers cannot be changed afterwards.",
+    confirmLabel: signs ? "Sign and submit" : "Submit",
+  });
+  if (!ok) return;
+  const btn = document.querySelector('[data-testid="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
+  fillState.error = "";
+  try {
+    // The form as it is NOW, not as this tab loaded it: a closed form takes
+    // nothing, and the copy records the statement and questions on screen.
+    if (DB) {
+      const state = (await db(FORM_STATE_SQL, [form.id])).rows?.[0];
+      if (!state) throw userError("This form has been removed.");
+      if (state.status !== "open") { Object.assign(form, state); throw userError("This form is closed and no longer takes submissions."); }
+      // The member agreed to the statement on screen. If the stored one now
+      // reads differently, signing would record wording they never saw: show
+      // the new wording and ask for the agreement again.
+      if (Number(state.requires_signature) !== Number(form.requires_signature)
+        || (signs && (state.signature_text ?? "") !== (form.signature_text ?? ""))) {
+        Object.assign(form, { requires_signature: state.requires_signature, signature_text: state.signature_text });
+        fillState.signature.agreed = false;
+        const agree = document.getElementById("sig-agree");
+        if (agree) agree.checked = false;
+        throw userError("This form’s signature statement has changed. Read it again before you submit.");
+      }
+      form.signature_text = state.signature_text;
+    }
+    const sub = await ensureDraftRow(form);
+    const signedText = signs ? form.signature_text : "";
+    const hash = termsHash(questions, signedText);
+    const params = [JSON.stringify(checked.value.answers), sig.value.signed_name, signedText, hash, sub.id];
+    const { changed } = await db(signs ? SUBMIT_SIGNED_SQL : SUBMIT_SQL, params);
+    let notice = "";
+    // The submitted row as stored, with the hub's times, once known.
+    let stored = null;
+    if (DB && Number(changed ?? 0) === 0) {
+      // Nothing changed: find out why before saying anything. A retry can
+      // never land on a row that is already final, so "try again" is wrong
+      // whenever the check itself fails.
+      let again;
+      try { again = await loadMineFor(form.id); }
+      catch (err) { console.error(err); throw userError("Couldn’t check whether this form was submitted. Reload the page to see."); }
+      if (again?.status !== "submitted") throw userError(failureLine(null, { action: "submit the form", thing: "submission", found: !!again, guarded: true }));
+      // Submitted already, from another tab or device: that copy is the one
+      // kept, and these answers were not saved.
+      notice = "This form was already submitted from another tab or device. That copy is the one kept; the answers on this screen were not saved.";
+      stored = again;
+    } else {
+      // The times were the hub's: read the stored row back for them. If that
+      // read fails the copy is still final, and this tab shows its own clock
+      // until the next load.
+      const now = new Date().toISOString();
+      Object.assign(sub, { status: "submitted", answers: params[0], signed_name: params[1], signed_at: signs ? now : null, signed_text: signedText, terms_hash: hash, submitted_at: now, updated_at: now });
+      // Without a database (the demo) the local row is the stored one.
+      stored = DB ? await loadMineFor(form.id).catch(err => { console.error(err); return null; }) : sub;
+    }
+    // A reviewer's completion list counts this copy too, with the hub's
+    // times: the list compares them with the close. Without the stored row
+    // it is read again rather than patched with this device's clock.
+    if (submissionsByForm.has(form.id)) {
+      if (stored) submissionsByForm.set(form.id, [stored, ...submissionsByForm.get(form.id).filter(s => s.id !== stored.id)]);
+      else if (DB) await loadSubmissions(form.id).catch(err => console.error(err));
+    }
+    render();
+    // Cleared after the redraw: renderFormPage reads the inputs still on
+    // screen into fillState first, which would put these answers back.
+    fillState.answers = {};
+    fillState.signature = { name: null, agreed: false };
+    if (notice) { hubAlert(notice); return; }
+    logHubActivity(`${ME.name} submitted "${form.title}"`, { url: hubAppUrl(APP_ID, { formId }) }).catch(() => {});
+  } catch (e) {
+    console.error(e);
+    fillState.error = failureLine(e, { action: "submit the form", thing: "submission" });
+    render();
+  }
+}
+
+/** A signed copy is shown only against its form's questions: shown against
+ *  none, every answer would be missing and the copy would read as altered. */
+async function showCopy(form, sub) {
+  let questions = questionsFailed.has(form.id) ? null : questionsByForm.get(form.id);
+  if (!questions) {
+    try { questions = await loadQuestions(form.id); questionsFailed.delete(form.id); }
+    catch (e) { console.error(e); questionsFailed.add(form.id); hubAlert("Couldn’t load this form’s questions, so the copy can’t be shown. Try again."); return; }
+  }
+  // The load may have landed while a question was saving: opening now would
+  // orphan that dialog, which cannot close mid-save.
+  if (modalEl?.dataset.saving) return;
+  openSubmissionModal(form, sub, questions);
+}
+
+function openSubmissionModal(form, sub, questions) {
+  const answers = parseObject(sub.answers);
+  const rows = [...questions].sort((a, b) => a.position - b.position).map(q => {
+    const value = answers[q.id];
+    const text = answerText(q, value);
+    const shown = (text ? `<div class="answer">${esc(text)}</div>` : `<span class="answer none">No answer</span>`)
+      + (q.type === "read" ? docLink(q) : "");
+    return `<div class="question"><div class="q-label">${esc(q.label)}</div>${shown}</div>`;
+  }).join("");
+  const intact = submissionIntact(questions, sub);
+  const terms = sub.signed_at ? `
+    <div class="signature-box">
+      <div class="q-label">${glyph("signature")} Signed</div>
+      <div class="statement" data-testid="signed-text">${esc(sub.signed_text)}</div>
+      <div class="signed-line" data-testid="signed-name">${esc(sub.signed_name)}</div>
+      <p class="form-hint">${esc(memberName(sub.member_id))} · ${formatWhen(sub.signed_at)}</p>
+      <p class="form-hint">Terms reference ${esc(String(sub.terms_hash).slice(0, 16))}${intact ? "" : " — the questions changed after this was signed, or the copy was altered"}</p>
+    </div>` : (intact ? "" : `<p class="form-hint">The questions changed after this was submitted.</p>`);
+  openModal(`
+    ${modalHeader(esc(form.title))}
+    <div class="modal-body" data-testid="submission-view">
+      <p class="form-hint" style="margin-bottom:10px">${esc(memberName(sub.member_id))} · submitted ${sub.submitted_at ? formatWhen(sub.submitted_at) : ""}</p>
+      ${form.description ? `<p class="detail-desc">${esc(form.description)}</p>` : ""}
+      ${rows}
+      ${terms}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="print">${glyph("document")} Print or save as PDF</button>
+      <button class="btn btn-primary" data-action="close-modal">Close</button>
+    </div>`, "submission-modal");
+}
+
+async function remind(formId) {
+  const form = formById(forms, formId);
+  const subs = submissionsByForm.get(formId) ?? [];
+  const { outstanding } = completion(form, subs, ctx());
+  if (outstanding.length === 0) return;
+  const btn = document.querySelector('[data-testid="remind"]');
+  if (btn) btn.disabled = true;
+  const sent = await sendHubNotification({
+    title: `Reminder: ${form.title}`,
+    body: form.due_date ? `Please fill it in by ${formatDay(form.due_date)}.` : "Please fill it in when you can.",
+    audience: outstanding,
+    url: hubAppUrl(APP_ID, { formId }),
+  }).catch(() => null);
+  if (btn) btn.disabled = false;
+  toast(sent ? `Reminded ${outstanding.length} ${outstanding.length === 1 ? "person" : "people"}.` : "The reminder could not be sent.");
+}
+
+async function deleteIntake(id) {
+  const ok = await hubConfirm({ message: "Remove this submission?", confirmLabel: "Remove", destructive: true });
+  if (!ok) return;
+  const formId = view.id;
+  try {
+    const { changed } = await db(`DELETE FROM app_forms__intake WHERE id = ?`, [id]);
+    if (DB && Number(changed ?? 0) === 0) throw userError(failureLine(null, { action: "remove the submission", thing: "submission", found: true }));
+    intakeByForm.set(formId, (intakeByForm.get(formId) ?? []).filter(r => r.id !== id));
+    render();
+  } catch (e) { console.error(e); hubAlert(failureLine(e, { action: "remove the submission", thing: "submission" })); }
+}
+
+// ── Reviewer settings (hub admin) ────────────────────────────────────────────
+
+function openSettingsModal() {
+  openModal(`
+    ${modalHeader(`${glyph("gear")} Reviewers`)}
+    <div class="modal-body">
+      <div class="form-group"><label for="rev-group">Reviewers group</label>
+        <select id="rev-group" data-testid="field-reviewers-group"><option value="">— none (nobody reads submissions) —</option>${groups.map(g => `<option value="${esc(g.id)}" ${reviewersGroupId === g.id ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select>
+        <p class="form-hint">Members of this group can read every submitted form and see who has not submitted. Nobody else can, not even a hub admin.${TENANT.spaceKind === "roster" ? " In this space only the steward, as a member of the group, can read submissions: put yourself in it." : ""} Manage group membership in hub settings.</p>
+      </div>
+      <div id="modal-error" class="inline-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      <button class="btn btn-primary" data-testid="settings-save" data-action="save-settings">Save</button>
+    </div>`, "settings-modal");
+}
+
+async function saveSettings() {
+  const host = modalEl;
+  const groupId = host?.querySelector("#rev-group")?.value ?? "";
+  const btn = host?.querySelector("[data-action=save-settings]");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    const res = await fetch(ADMIN_CONFIG_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "reviewers_group_id", value: groupId }) });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(err?.error ?? "Save failed"), { status: res.status, code: typeof err?.code === "string" ? err.code : undefined });
+    }
+    reviewersGroupId = groupId || null;
+    closeModal(host);
+    if (view.kind === "form" && canReview()) await loadSubmissions(view.id).catch(() => {});
+    render();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+    console.error(e);
+    const errEl = host?.querySelector("#modal-error");
+    if (errEl) errEl.textContent = failureLine(e, { action: "save the settings", thing: "setting" });
+  }
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+
+let toastTimer = null;
+function toast(message) {
+  let el = document.getElementById("toast");
+  if (!el) { el = document.createElement("div"); el.id = "toast"; el.className = "toast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+  el.textContent = message;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 5000);
+}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+
+document.addEventListener("click", (e) => {
+  // A question being saved owns the screen: no other control may close it,
+  // replace it or change its document until the save settles.
+  if (modalEl?.dataset.saving) return;
+  if (e.target.closest('[data-testid="load-retry"]')) { init(); return; }
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const id = el.dataset.id;
+  const form = view.kind === "form" ? formById(forms, view.id) : null;
+  switch (el.dataset.action) {
+    case "archive-more": loadMore("archive", () => loadArchived({ more: true }), "Couldn’t load older archived forms."); break;
+    case "tab": currentTab = id; if (id === "archived" && canManage() && !archivedLoaded) loadArchived().then(render).catch(err => { console.error(err); toast("Couldn’t load archived forms."); }); render(); break;
+    case "new": openFormModal(null); break;
+    case "open": openForm(id); break;
+    case "back": closeForm(); break;
+    case "close-modal": closeModal(); break;
+    case "settings": openSettingsModal(); break;
+    case "save-settings": saveSettings(); break;
+    case "edit-form": openFormModal(formById(forms, id)); break;
+    case "save-form": saveForm(id || null); break;
+    case "add-q": openQuestionModal(id, null); break;
+    case "edit-q": openQuestionModal(form.id, (questionsByForm.get(form.id) ?? []).find(q => q.id === id)); break;
+    case "save-q": saveQuestion(id || null, el.dataset.form); break;
+    case "q-remove-doc": if (modalEl) { dropDialogUpload(modalEl); Object.assign(modalEl.dataset, { fileId: "", fileName: "" }); modalEl.querySelector("#q-doc").innerHTML = ""; } break;
+    case "delete-q": deleteQuestion(id); break;
+    case "move-q": moveQuestion(id, Number(el.dataset.dir)); break;
+    case "open-form": openFormToAudience(id); break;
+    case "close-form": transitionForm(id, CLOSE_FORM_SQL, "open", { status: "closed" }, { action: "close the form" }); break;
+    case "reopen-form": transitionForm(id, REOPEN_FORM_SQL, "closed", { status: "open", closes_at: null, closed_at: null, closed_windows: endClosedSpell(form, new Date().toISOString()) }, { action: "reopen the form" }); break;
+    case "archive-form": hubConfirm({ message: "Archive this form?", description: "It leaves the list and every intake link stops. Submissions are kept.", confirmLabel: "Archive", destructive: true }).then(ok => { if (ok) transitionForm(id, ARCHIVE_FORM_SQL, form.status, { status: "archived" }, { action: "archive the form" }); }); break;
+    case "delete-form": deleteDraft(id); break;
+    case "share": if (form) shareUi.open({ id: form.id, title: form.title }); break;
+    case "save-draft": saveDraft(id); break;
+    case "submit": submitForm(id); break;
+    case "retry-questions": openForm(id); break;
+    case "view-mine": { const sub = mySubmission(mine, id, ME?.id); if (sub && form) showCopy(form, sub); break; }
+    case "view-sub": { const sub = (submissionsByForm.get(form?.id) ?? []).find(s => s.id === id); if (sub && form) showCopy(form, sub); break; }
+    case "remind": remind(id); break;
+    case "delete-intake": deleteIntake(id); break;
+    case "intake-more": loadMore(`intake:${id}`, () => loadIntake(id, { more: true }), "Couldn’t load older submissions."); break;
+    case "print": window.print(); break;
+  }
+});
+
+// ── Demo data ────────────────────────────────────────────────────────────────
+
+function loadDemoData() {
+  const now = new Date();
+  const iso = (d) => new Date(now.getTime() - d * 86400000).toISOString();
+  const demoQuestions = [
+    { id: "q1", form_id: "demo-1", position: 0, type: "read", label: "Pool rules", help: "", required: 1, options: "[]", body: "No glass on the deck. Children under 12 must be with an adult. The gate closes at 9pm.", link_url: "" },
+    { id: "q2", form_id: "demo-1", position: 1, type: "text", label: "Emergency contact", help: "A name and number", required: 1, options: "[]", body: "", link_url: "" },
+    { id: "q3", form_id: "demo-1", position: 2, type: "yesno", label: "Can your child swim unassisted?", help: "", required: 1, options: "[]", body: "", link_url: "" },
+  ];
+  forms = [
+    { id: "demo-1", title: "Pool waiver 2026", description: "Read the rules and sign before the season starts.", status: "open", audience_kind: "everyone", audience_group_id: null, audience_member_ids: "[]", requires_signature: 1, signature_text: "I have read the pool rules and accept them on behalf of my household.", due_date: hubToday(new Date(now.getTime() + 10 * 86400000)), closes_at: null, created_by: "demo-1", created_at: iso(3), updated_at: iso(3), opened_at: iso(2), closed_at: null },
+    { id: "demo-2", title: "Welcome packet", description: "For new families: the handbook, the photo consent and a few questions.", status: "draft", audience_kind: "group", audience_group_id: "g-board", audience_member_ids: "[]", requires_signature: 1, signature_text: "I have read the handbook.", due_date: null, closes_at: null, created_by: "demo-1", created_at: iso(1), updated_at: iso(1), opened_at: null, closed_at: null },
+  ];
+  questionsByForm.set("demo-1", demoQuestions);
+  questionsByForm.set("demo-2", []);
+  mine = [];
+}
+
+// ── Deep link ────────────────────────────────────────────────────────────────
+
+function handleDeepLink() {
+  const formId = new URLSearchParams(window.location.search).get("formId");
+  if (formId && formById(forms, formId)) openForm(formId);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+async function init() {
+  if (!DB) {
+    await loadMembers();
+    ME = resolveCurrentMember(window.__CURRENT_MEMBER, members, IN_HUB);
+    loadDemoData();
+    render();
+    handleDeepLink();
+    return;
+  }
+  try {
+    await Promise.all([loadMembers(), loadSettings()]);
+    ME = resolveCurrentMember(window.__CURRENT_MEMBER, members, IN_HUB);
+    await Promise.all([loadForms(), loadMine()]);
+    loadFailed = false;
+    // loadForms drops the archive it was merged into: a retry made from the
+    // Archived tab reads it again rather than leaving the tab empty.
+    if (currentTab === "archived" && canManage()) await loadArchived().catch(e => { console.error(e); toast("Couldn’t load archived forms."); });
+    // Only adds the forms behind older copies: a failure here says so and
+    // leaves the live list standing.
+    await loadSignedForms().catch(e => { console.error(e); toast("Couldn’t load your older signed copies. Try again later."); });
+  } catch (e) {
+    console.error(e);
+    loadFailed = true;
+  }
+  render();
+  handleDeepLink();
+}
+
+init();
+</script>
+</body>
+</html>

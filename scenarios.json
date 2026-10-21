@@ -1,0 +1,1443 @@
+{
+  "scenarios": [
+    {
+      "name": "a member fills a form once, cannot change it after submitting, and only the reviewers group reads it; the read step's document is fixed once the form opens; a reorder swaps only from the positions it saw, never after opening, and no two questions share a place",
+      "members": {
+        "builder": "adult",
+        "reviewer": "adult",
+        "kid": "child",
+        "other": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "reviewer"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+          "params": [
+            "f1",
+            "Pool waiver",
+            "Read and sign",
+            "everyone",
+            null,
+            "[]",
+            1,
+            "I accept the rules.",
+            null,
+            "{{builder}}",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url, file_id, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "params": [
+            "q1",
+            "f1",
+            0,
+            "read",
+            "Pool rules",
+            "",
+            1,
+            "[]",
+            "No glass on the deck.",
+            "",
+            "0f8fad5b-d9cb-469f-a165-70867728950e",
+            "pool-rules.pdf"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "params": [
+            "q2",
+            "f1",
+            1,
+            "yesno",
+            "Can your child swim?",
+            "",
+            1,
+            "[]",
+            "",
+            ""
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+          "params": [
+            "f-kid",
+            "Mine",
+            "",
+            "everyone",
+            null,
+            "[]",
+            0,
+            "",
+            null,
+            "{{kid}}",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__questions SET type = ?, label = ?, help = ?, required = ?, options = ?, body = ?, link_url = ?, file_id = ?, file_name = ? WHERE id = ? AND file_id IS ?",
+          "params": [
+            "read",
+            "Stale edit",
+            "",
+            1,
+            "[]",
+            "",
+            "",
+            "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "other.pdf",
+            "q1",
+            "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "SELECT label, file_id FROM app_forms__questions WHERE id = ?",
+          "params": [
+            "q1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "label": "Pool rules",
+                "file_id": "0f8fad5b-d9cb-469f-a165-70867728950e"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__questions SET type = ?, label = ?, help = ?, required = ?, options = ?, body = ?, link_url = ?, file_id = ?, file_name = ? WHERE id = ? AND file_id IS ?",
+          "params": [
+            "read",
+            "Pool rules",
+            "",
+            1,
+            "[]",
+            "No glass on the deck.",
+            "",
+            "0f8fad5b-d9cb-469f-a165-70867728950e",
+            "pool-rules.pdf",
+            "q1",
+            "0f8fad5b-d9cb-469f-a165-70867728950e"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__questions SET type = ?, label = ?, help = ?, required = ?, options = ?, body = ?, link_url = ?, file_id = ?, file_name = ? WHERE id = ? AND file_id IS ?",
+          "params": [
+            "yesno",
+            "Can your child swim?",
+            "",
+            1,
+            "[]",
+            "",
+            "",
+            null,
+            "",
+            "q2",
+            null
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "batch",
+          "as": "builder",
+          "statements": [
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                -1,
+                "q1",
+                5
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                5,
+                "q2",
+                1
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                1,
+                "q1",
+                -1
+              ],
+              "requireChanges": true
+            }
+          ],
+          "expect": {
+            "status": 409
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "SELECT id, position FROM app_forms__questions WHERE form_id = ? ORDER BY position ASC",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "q1",
+                "position": 0
+              },
+              {
+                "id": "q2",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "batch",
+          "as": "builder",
+          "statements": [
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                -1,
+                "q1",
+                0
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                0,
+                "q2",
+                1
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                1,
+                "q1",
+                -1
+              ],
+              "requireChanges": true
+            }
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "SELECT id, position FROM app_forms__questions WHERE form_id = ? ORDER BY position ASC",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "q2",
+                "position": 0
+              },
+              {
+                "id": "q1",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "batch",
+          "as": "builder",
+          "statements": [
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                -1,
+                "q2",
+                0
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                0,
+                "q1",
+                1
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                1,
+                "q2",
+                -1
+              ],
+              "requireChanges": true
+            }
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "params": [
+            "q-dup",
+            "f1",
+            1,
+            "text",
+            "Same place",
+            "",
+            0,
+            "[]",
+            "",
+            ""
+          ],
+          "expect": {
+            "status": 400
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__forms SET status = 'open', opened_at = ?, closes_at = NULL, closed_windows = CASE WHEN closed_at IS NULL THEN closed_windows ELSE json_insert(CASE WHEN json_valid(closed_windows) THEN closed_windows ELSE '[]' END, '$[#]', json_array(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) END, closed_at = NULL, updated_at = ? WHERE id = ? AND status = 'draft'",
+          "params": [
+            "2026-01-02T00:00:00Z",
+            "2026-01-02T00:00:00Z",
+            "f1"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "batch",
+          "as": "builder",
+          "statements": [
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                -1,
+                "q1",
+                0
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                0,
+                "q2",
+                1
+              ],
+              "requireChanges": true
+            },
+            {
+              "sql": "UPDATE app_forms__questions SET position = ? WHERE id = ? AND position = ?",
+              "params": [
+                1,
+                "q1",
+                -1
+              ],
+              "requireChanges": true
+            }
+          ],
+          "expect": {
+            "status": 409
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "SELECT id, position FROM app_forms__questions WHERE form_id = ? ORDER BY position ASC",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "q1",
+                "position": 0
+              },
+              {
+                "id": "q2",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__questions SET label = 'Changed after opening' WHERE id = 'q1'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "UPDATE app_forms__questions SET file_id = ?, file_name = ? WHERE id = 'q1'",
+          "params": [
+            "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "other.pdf"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "params": [
+            "q3",
+            "f1",
+            2,
+            "text",
+            "Added after opening",
+            "",
+            0,
+            "[]",
+            "",
+            ""
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id, label, file_id, file_name FROM app_forms__questions WHERE form_id = ? ORDER BY position ASC, id ASC",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "q1",
+                "label": "Pool rules",
+                "file_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+                "file_name": "pool-rules.pdf"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?)",
+          "params": [
+            "s-kid",
+            "f1",
+            "{{other}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id, status FROM app_forms__submissions WHERE form_id = ? AND member_id = ?",
+          "params": [
+            "f1",
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "s-kid",
+                "status": "draft"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?)",
+          "params": [
+            "s-kid-2",
+            "f1",
+            "{{kid}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, signed_name = ?, signed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft'",
+          "params": [
+            "{\"q1\":true,\"q2\":\"yes\"}",
+            "Casey Kid",
+            "I accept the rules.",
+            "hash-1",
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT status, signed_name FROM app_forms__submissions WHERE id = ?",
+          "params": [
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "status": "submitted",
+                "signed_name": "Casey Kid"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_forms__submissions SET answers = '{\"q2\":\"no\"}' WHERE id = 's-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT answers FROM app_forms__submissions WHERE id = ?",
+          "params": [
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "answers": "{\"q1\":true,\"q2\":\"yes\"}"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_forms__submissions WHERE id = 's-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_forms__submissions WHERE id = ?",
+          "params": [
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT id, member_id, signed_name FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "s-kid",
+                "signed_name": "Casey Kid"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "builder",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "f1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "UPDATE app_forms__submissions SET signed_name = 'Forged' WHERE id = 's-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT signed_name FROM app_forms__submissions WHERE id = ?",
+          "params": [
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "signed_name": "Casey Kid"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "UPDATE app_forms__submissions SET signed_name = 'Edited by reviewer' WHERE id = 's-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT signed_name FROM app_forms__submissions WHERE id = ?",
+          "params": [
+            "s-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "signed_name": "Casey Kid"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a draft submission is private to its member; the reviewers group reads it only once submitted",
+      "members": {
+        "builder": "adult",
+        "reviewer": "adult",
+        "member": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "reviewer"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, status, audience_kind, created_by, created_at, updated_at) VALUES ('f2', 'Survey', 'open', 'everyone', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+          "params": [
+            "{{builder}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'draft', '{}', '', NULL, '', NULL, ?, ?)",
+          "params": [
+            "s-m",
+            "f2",
+            "{{member}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "f2"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "UPDATE app_forms__submissions SET answers = ?, updated_at = ? WHERE id = ? AND status = 'draft'",
+          "params": [
+            "{\"q\":\"draft text\"}",
+            "2026-01-03T01:00:00Z",
+            "s-m"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "UPDATE app_forms__submissions SET member_id = ? WHERE id = 's-m'",
+          "params": [
+            "{{reviewer}}"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "member",
+          "sql": "UPDATE app_forms__submissions SET status = 'submitted', answers = ?, signed_name = ?, signed_at = NULL, signed_text = ?, terms_hash = ?, submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'draft'",
+          "params": [
+            "{\"q\":\"final\"}",
+            "",
+            "",
+            "h",
+            "s-m"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT id, answers FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "f2"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "s-m",
+                "answers": "{\"q\":\"final\"}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "reopening a closed form, or opening a draft that was once closed, records the closed spell it ends as a pair of hub times, and clears closed_at",
+      "members": {
+        "adult": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, status, audience_kind, created_by, created_at, updated_at, opened_at) VALUES ('f9', 'Pool waiver', 'open', 'everyone', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+          "params": [
+            "{{adult}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__forms SET status = 'closed', closes_at = MIN(COALESCE(closes_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), closed_at = COALESCE(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), updated_at = ? WHERE id = ? AND status = 'open'",
+          "params": [
+            "2026-01-02T00:00:00Z",
+            "f9"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT json_array_length(closed_windows) AS n, (closed_at IS NULL) AS cleared, CASE WHEN json_array_length(closed_windows) = 0 THEN 1 ELSE (json_type(closed_windows, '$[#-1][0]') = 'text' AND json_type(closed_windows, '$[#-1][1]') = 'text' AND json_extract(closed_windows, '$[#-1][0]') <= json_extract(closed_windows, '$[#-1][1]')) END AS shaped FROM app_forms__forms WHERE id = ?",
+          "params": [
+            "f9"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "n": 0,
+                "cleared": 0,
+                "shaped": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__forms SET status = 'open', closes_at = NULL, closed_windows = CASE WHEN closed_at IS NULL THEN closed_windows ELSE json_insert(CASE WHEN json_valid(closed_windows) THEN closed_windows ELSE '[]' END, '$[#]', json_array(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) END, closed_at = NULL, updated_at = ? WHERE id = ? AND status = 'closed'",
+          "params": [
+            "2026-01-03T00:00:00Z",
+            "f9"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT json_array_length(closed_windows) AS n, (closed_at IS NULL) AS cleared, CASE WHEN json_array_length(closed_windows) = 0 THEN 1 ELSE (json_type(closed_windows, '$[#-1][0]') = 'text' AND json_type(closed_windows, '$[#-1][1]') = 'text' AND json_extract(closed_windows, '$[#-1][0]') <= json_extract(closed_windows, '$[#-1][1]')) END AS shaped FROM app_forms__forms WHERE id = ?",
+          "params": [
+            "f9"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "n": 1,
+                "cleared": 1,
+                "shaped": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__forms SET status = 'closed', closes_at = MIN(COALESCE(closes_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), closed_at = COALESCE(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), updated_at = ? WHERE id = ? AND status = 'open'",
+          "params": [
+            "2026-01-04T00:00:00Z",
+            "f9"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__forms SET status = 'open', closes_at = NULL, closed_windows = CASE WHEN closed_at IS NULL THEN closed_windows ELSE json_insert(CASE WHEN json_valid(closed_windows) THEN closed_windows ELSE '[]' END, '$[#]', json_array(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) END, closed_at = NULL, updated_at = ? WHERE id = ? AND status = 'closed'",
+          "params": [
+            "2026-01-05T00:00:00Z",
+            "f9"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT json_array_length(closed_windows) AS n, (closed_at IS NULL) AS cleared, CASE WHEN json_array_length(closed_windows) = 0 THEN 1 ELSE (json_type(closed_windows, '$[#-1][0]') = 'text' AND json_type(closed_windows, '$[#-1][1]') = 'text' AND json_extract(closed_windows, '$[#-1][0]') <= json_extract(closed_windows, '$[#-1][1]')) END AS shaped FROM app_forms__forms WHERE id = ?",
+          "params": [
+            "f9"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "n": 2,
+                "cleared": 1,
+                "shaped": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, status, audience_kind, created_by, created_at, updated_at, opened_at, closed_at) VALUES ('g9', 'Set back to draft', 'draft', 'everyone', ?, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z')",
+          "params": [
+            "{{adult}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__forms SET status = 'open', opened_at = ?, closes_at = NULL, closed_windows = CASE WHEN closed_at IS NULL THEN closed_windows ELSE json_insert(CASE WHEN json_valid(closed_windows) THEN closed_windows ELSE '[]' END, '$[#]', json_array(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) END, closed_at = NULL, updated_at = ? WHERE id = ? AND status = 'draft'",
+          "params": [
+            "2026-01-06T00:00:00Z",
+            "2026-01-06T00:00:00Z",
+            "g9"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT json_array_length(closed_windows) AS n, (closed_at IS NULL) AS cleared, CASE WHEN json_array_length(closed_windows) = 0 THEN 1 ELSE (json_type(closed_windows, '$[#-1][0]') = 'text' AND json_type(closed_windows, '$[#-1][1]') = 'text' AND json_extract(closed_windows, '$[#-1][0]') <= json_extract(closed_windows, '$[#-1][1]')) END AS shaped FROM app_forms__forms WHERE id = ?",
+          "params": [
+            "g9"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "n": 1,
+                "cleared": 1,
+                "shaped": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "intake rows come only from the share link: members cannot write one, an adult can read and remove one, a child can do neither",
+      "members": {
+        "adult": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, status, audience_kind, created_by, created_at, updated_at) VALUES ('f3', 'Join us', 'open', 'everyone', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+          "params": [
+            "{{adult}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__intake (id, form_id, guest_name, guest_email, guest_phone, guest_note, source, created_at) VALUES ('i1', 'f3', 'Pat Visitor', 'pat@example.com', '', 'Interested in joining.', 'external', '2026-01-05T00:00:00Z')"
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "INSERT INTO app_forms__intake (id, form_id, guest_name, guest_email, guest_phone, guest_note, source, created_at) VALUES (?, ?, ?, ?, ?, ?, 'external', ?)",
+          "params": [
+            "i-forged",
+            "f3",
+            "Not Pat",
+            "",
+            "",
+            "",
+            "2026-01-06T00:00:00Z"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "UPDATE app_forms__intake SET guest_note = 'changed' WHERE id = 'i1'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id, guest_name FROM app_forms__intake WHERE form_id = ?",
+          "params": [
+            "f3"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT id, guest_name FROM app_forms__intake WHERE form_id = ?",
+          "params": [
+            "f3"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "i1",
+                "guest_name": "Pat Visitor"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_forms__intake WHERE id = 'i1'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "DELETE FROM app_forms__intake WHERE id = 'i1'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT id FROM app_forms__intake WHERE form_id = ?",
+          "params": [
+            "f3"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "in a shared space every adult builds forms and reads the questions; only members of the reviewers group read what others submitted",
+      "context": "shared_space",
+      "members": {
+        "steward": "admin",
+        "adult": "adult",
+        "reviewer": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "reviewer"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+          "params": [
+            "sf1",
+            "Club waiver",
+            "",
+            "everyone",
+            null,
+            "[]",
+            1,
+            "I agree.",
+            null,
+            "{{adult}}",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "UPDATE app_forms__forms SET status = 'open', opened_at = ?, closes_at = NULL, closed_windows = CASE WHEN closed_at IS NULL THEN closed_windows ELSE json_insert(CASE WHEN json_valid(closed_windows) THEN closed_windows ELSE '[]' END, '$[#]', json_array(closed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) END, closed_at = NULL, updated_at = ? WHERE id = ? AND status = 'draft'",
+          "params": [
+            "2026-01-02T00:00:00Z",
+            "2026-01-02T00:00:00Z",
+            "sf1"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'submitted', '{}', 'Steward Name', ?, 'h', ?, ?, ?)",
+          "params": [
+            "ss-steward",
+            "sf1",
+            "{{steward}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "adult",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "sf1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "sf1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT id, signed_name FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "sf1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "ss-steward",
+                "signed_name": "Steward Name"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "in a roster only the steward builds forms; a participant fills their own and never sees another's",
+      "context": "shared_space.roster",
+      "members": {
+        "steward": "admin",
+        "a": "adult",
+        "b": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "steward"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+          "params": [
+            "rf-a",
+            "Mine",
+            "",
+            "everyone",
+            null,
+            "[]",
+            0,
+            "",
+            null,
+            "{{a}}",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_group_id, audience_member_ids, requires_signature, signature_text, due_date, closes_at, created_by, created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)",
+          "params": [
+            "rf1",
+            "Field trip consent",
+            "",
+            "everyone",
+            null,
+            "[]",
+            1,
+            "I consent.",
+            null,
+            "{{steward}}",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "params": [
+            "rq-a",
+            "rf1",
+            0,
+            "text",
+            "Added by a participant",
+            "",
+            0,
+            "[]",
+            "",
+            ""
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'submitted', '{}', 'Parent A', ?, 'h', ?, ?, ?)",
+          "params": [
+            "rs-a",
+            "rf1",
+            "{{a}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'submitted', '{}', 'Parent B', ?, 'h', ?, ?, ?)",
+          "params": [
+            "rs-b",
+            "rf1",
+            "{{b}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "rf1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "rs-a"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "rf1"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "in a roster only a steward who is a reviewer reads families' submissions: neither the steward alone nor a participant reviewer does",
+      "context": "shared_space.roster",
+      "members": {
+        "steward": "admin",
+        "reviewer": "adult",
+        "a": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "reviewer"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, status, audience_kind, created_by, created_at, updated_at) VALUES ('rf2', 'Photo consent', 'open', 'everyone', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+          "params": [
+            "{{steward}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, signed_text, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'submitted', '{}', 'Parent A', ?, 'I consent.', 'h', ?, ?, ?)",
+          "params": [
+            "rs2-a",
+            "rf2",
+            "{{a}}",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z",
+            "2026-01-03T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "rf2"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "reviewer",
+          "sql": "SELECT id FROM app_forms__submissions WHERE form_id = ?",
+          "params": [
+            "rf2"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        }
+      ]
+    }
+  ]
+}

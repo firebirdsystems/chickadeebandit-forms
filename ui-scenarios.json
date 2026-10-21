@@ -1,0 +1,479 @@
+{
+  "scenarios": [
+    {
+      "name": "a child sees an open form under To do, is offered no builder, sees the attached document, fills it in and signs; the card then reads Submitted",
+      "members": {
+        "parent": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_member_ids, requires_signature, signature_text, created_by, created_at, updated_at, opened_at) VALUES (?, ?, ?, 'open', 'everyone', '[]', 1, ?, ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')",
+          "params": [
+            "ui-f1",
+            "Pool waiver",
+            "Read the rules and sign.",
+            "I have read the pool rules.",
+            "{{parent}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url, file_id, file_name) VALUES (?, ?, 0, 'read', ?, '', 1, '[]', ?, '', '0f8fad5b-d9cb-469f-a165-70867728950e', ?)",
+          "params": [
+            "ui-q1",
+            "ui-f1",
+            "Pool rules",
+            "No glass on the deck.",
+            "pool-rules.pdf"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, 1, 'yesno', ?, '', 1, '[]', '', '')",
+          "params": [
+            "ui-q2",
+            "ui-f1",
+            "Can you swim?"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "kid"
+        },
+        {
+          "action": "expectVisible",
+          "as": "kid",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-f1\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "1",
+          "selector": "[data-testid=\"todo-badge\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"new-form\"]",
+          "count": 0
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-f1\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "kid",
+          "selector": "[data-testid=\"fill-form\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"manage\"]",
+          "count": 0
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"review\"]",
+          "count": 0
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "No glass on the deck.",
+          "selector": "[data-testid=\"question\"][data-question-id=\"ui-q1\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "pool-rules.pdf",
+          "selector": "[data-testid=\"question\"][data-question-id=\"ui-q1\"] [data-testid=\"read-document\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"submit\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "Confirm you have read",
+          "selector": "[data-testid=\"fill-error\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"question\"][data-question-id=\"ui-q1\"] input[data-read]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"question\"][data-question-id=\"ui-q2\"] input[value=\"yes\"]"
+        },
+        {
+          "action": "fill",
+          "as": "kid",
+          "selector": "[data-testid=\"sig-name\"]",
+          "value": "Casey Kid"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"sig-agree\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"submit\"]"
+        },
+        {
+          "action": "dialog",
+          "as": "kid",
+          "answer": "accept",
+          "text": "Sign and submit"
+        },
+        {
+          "action": "expectVisible",
+          "as": "kid",
+          "selector": "[data-testid=\"submitted-notice\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"back\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"todo-badge\"]",
+          "count": 0
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"tab-all\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "kid",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-f1\"] [data-testid=\"my-state\"][data-state=\"submitted\"]"
+        },
+        {
+          "action": "reload",
+          "as": "kid"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"tab-all\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "kid",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-f1\"] [data-testid=\"my-state\"][data-state=\"submitted\"]"
+        }
+      ]
+    },
+    {
+      "name": "an adult builds a draft, adds a question and opens it; a reviewer sees who has not finished",
+      "members": {
+        "admin": "admin",
+        "builder": "adult",
+        "member": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedGroup",
+          "group": "reviewers",
+          "name": "Reviewers",
+          "members": [
+            "builder"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__settings (key, value) VALUES ('reviewers_group_id', ?)",
+          "params": [
+            "{{group:reviewers}}"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "builder"
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"new-form\"]"
+        },
+        {
+          "action": "click",
+          "as": "builder",
+          "selector": "[data-testid=\"new-form\"]"
+        },
+        {
+          "action": "fill",
+          "as": "builder",
+          "selector": "[data-testid=\"field-title\"]",
+          "value": "Welcome packet"
+        },
+        {
+          "action": "click",
+          "as": "builder",
+          "selector": "[data-testid=\"form-save\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"form-page\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"manage\"]"
+        },
+        {
+          "action": "click",
+          "as": "builder",
+          "selector": "[data-testid=\"add-question\"]"
+        },
+        {
+          "action": "select",
+          "as": "builder",
+          "selector": "[data-testid=\"field-qtype\"]",
+          "value": "text"
+        },
+        {
+          "action": "fill",
+          "as": "builder",
+          "selector": "[data-testid=\"field-qlabel\"]",
+          "value": "Emergency contact"
+        },
+        {
+          "action": "click",
+          "as": "builder",
+          "selector": "[data-testid=\"question-save\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "builder",
+          "text": "Emergency contact",
+          "selector": "[data-testid=\"builder\"]"
+        },
+        {
+          "action": "click",
+          "as": "builder",
+          "selector": "[data-testid=\"open-form\"]"
+        },
+        {
+          "action": "dialog",
+          "as": "builder",
+          "answer": "accept",
+          "text": "Open this form"
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"status-badge\"][data-status=\"open\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "builder",
+          "selector": "[data-testid=\"add-question\"]",
+          "count": 0
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"review\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "builder",
+          "selector": "[data-testid=\"review\"]",
+          "text": "Not submitted"
+        },
+        {
+          "action": "expectVisible",
+          "as": "builder",
+          "selector": "[data-testid=\"remind\"]"
+        },
+        {
+          "action": "open",
+          "as": "member"
+        },
+        {
+          "action": "expectVisible",
+          "as": "member",
+          "selector": "[data-testid=\"form-card\"] [data-testid=\"my-state\"][data-state=\"none\"]"
+        },
+        {
+          "action": "click",
+          "as": "member",
+          "selector": "[data-testid=\"form-card\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "member",
+          "selector": "[data-testid=\"review\"]",
+          "count": 0
+        },
+        {
+          "action": "expectVisible",
+          "as": "member",
+          "selector": "[data-testid=\"manage\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "member",
+          "selector": "[data-testid=\"add-question\"]",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "name": "in a roster a participant is offered no builder; the steward is",
+      "context": "shared_space.roster",
+      "members": {
+        "steward": "admin",
+        "family": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_member_ids, requires_signature, signature_text, created_by, created_at, updated_at, opened_at) VALUES (?, ?, '', 'open', 'everyone', '[]', 0, '', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')",
+          "params": [
+            "ui-rf1",
+            "Field trip consent",
+            "{{steward}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, 0, 'yesno', ?, '', 1, '[]', '', '')",
+          "params": [
+            "ui-rq1",
+            "ui-rf1",
+            "May your child attend?"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "family"
+        },
+        {
+          "action": "expectCount",
+          "as": "family",
+          "selector": "[data-testid=\"new-form\"]",
+          "count": 0
+        },
+        {
+          "action": "click",
+          "as": "family",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-rf1\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "family",
+          "selector": "[data-testid=\"fill-form\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "family",
+          "selector": "[data-testid=\"manage\"]",
+          "count": 0
+        },
+        {
+          "action": "open",
+          "as": "steward"
+        },
+        {
+          "action": "expectVisible",
+          "as": "steward",
+          "selector": "[data-testid=\"new-form\"]"
+        },
+        {
+          "action": "click",
+          "as": "steward",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-rf1\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "steward",
+          "selector": "[data-testid=\"manage\"]"
+        }
+      ]
+    },
+    {
+      "name": "a member keeps their signed copy of an archived form: an Archived tab of their own opens it",
+      "members": {
+        "parent": "admin",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__forms (id, title, description, status, audience_kind, audience_member_ids, requires_signature, signature_text, created_by, created_at, updated_at, opened_at, closed_at) VALUES (?, ?, '', 'archived', 'everyone', '[]', 0, '', ?, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z', '2026-01-05T00:00:00Z')",
+          "params": [
+            "ui-af1",
+            "Last year's trip consent",
+            "{{parent}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__questions (id, form_id, position, type, label, help, required, options, body, link_url) VALUES (?, ?, 0, 'yesno', ?, '', 1, '[]', '', '')",
+          "params": [
+            "ui-aq1",
+            "ui-af1",
+            "May your child attend?"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_forms__submissions (id, form_id, member_id, status, answers, signed_name, signed_at, signed_text, terms_hash, submitted_at, created_at, updated_at) VALUES (?, ?, ?, 'submitted', ?, '', NULL, '', '', '2026-01-03T00:00:00Z', '2026-01-03T00:00:00Z', '2026-01-03T00:00:00Z')",
+          "params": [
+            "ui-as1",
+            "ui-af1",
+            "{{kid}}",
+            "{\"ui-aq1\":\"yes\"}"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "kid"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"tab-archived\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"form-card\"][data-form-id=\"ui-af1\"]"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"view-mine\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "kid",
+          "selector": "[data-testid=\"submission-modal\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "May your child attend?",
+          "selector": "[data-testid=\"submission-modal\"]"
+        }
+      ]
+    }
+  ]
+}
