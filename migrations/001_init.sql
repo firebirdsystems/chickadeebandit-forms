@@ -7,7 +7,7 @@
 -- One form. Adults build it (the steward alone in a roster space); everyone
 -- the form is meant for fills it in. `adult_writable` + `steward_writes_only`.
 CREATE TABLE IF NOT EXISTS app_forms__forms (
-  id                  TEXT PRIMARY KEY,
+  id                  TEXT NOT NULL PRIMARY KEY,
   title               TEXT NOT NULL,
   description         TEXT NOT NULL DEFAULT '',
 
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS app_forms__forms (
 -- own record of the wording (submissions.signed_text + terms_hash), so even
 -- a change that got past the policy cannot rewrite what was agreed.
 CREATE TABLE IF NOT EXISTS app_forms__questions (
-  id        TEXT PRIMARY KEY,
+  id        TEXT NOT NULL PRIMARY KEY,
   form_id   TEXT NOT NULL,
   position  INTEGER NOT NULL DEFAULT 0,
 
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS app_forms__questions (
 -- One member's answers to one form. Owned by that member; readable by the
 -- reviewers group once submitted; immutable once submitted (frozen_when).
 CREATE TABLE IF NOT EXISTS app_forms__submissions (
-  id           TEXT PRIMARY KEY,
+  id           TEXT NOT NULL PRIMARY KEY,
   form_id      TEXT NOT NULL,
   member_id    TEXT NOT NULL,
 
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS app_forms__submissions (
 -- a way to reach them, before they are a member. Inserted by the hub's
 -- share-link form only; members cannot write here (column_write_acls).
 CREATE TABLE IF NOT EXISTS app_forms__intake (
-  id          TEXT PRIMARY KEY,
+  id          TEXT NOT NULL PRIMARY KEY,
   form_id     TEXT NOT NULL,
   guest_name  TEXT NOT NULL DEFAULT '',
   guest_email TEXT NOT NULL DEFAULT '',
